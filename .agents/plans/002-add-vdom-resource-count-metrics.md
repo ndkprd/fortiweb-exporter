@@ -1,13 +1,21 @@
-# Plan: Add per-vdom resource-count metrics (server-policy, content-routing, server-pool)
+# Plan: Add per-vdom resource-count metrics (server-policy, content-routing, server-pool, protection-profile, allowed-hosts, virtual-server, signature)
 
 ## Overview
-Add 3 new Prometheus gauges to the exporter, each reporting the current number of
-configured server-policy, content-routing-policy, and server-pool objects on a
-target's FortiWeb vdom. Each configured target is already pinned to exactly one
-vdom (`config.yml`'s `vdom` field, baked into the auth header) — no cross-vdom
-enumeration is added; the new gauges are labeled with that target's own configured
-vdom so a Prometheus query spanning multiple targets/vdoms can still distinguish
-them.
+Add Prometheus gauges to the exporter reporting the current number of configured
+FortiWeb objects per resource type, per vdom. Each configured target is already
+pinned to exactly one vdom (`config.yml`'s `vdom` field, baked into the auth
+header) — no cross-vdom enumeration is added; the new gauges are labeled with
+that target's own configured vdom so a Prometheus query spanning multiple
+targets/vdoms can still distinguish them.
+
+Original scope (Tasks 1-4, completed): `server-policy`, `content-routing`,
+`server-pool`.
+
+Amendment scope (Tasks 5-7): `protection-profile`, `allowed-hosts`,
+`virtual-server`, `signature` — same pattern, same all-or-nothing/vdom-label
+design, just 4 more resource types reusing the Task 1/2 architecture
+(`getResourceCount` helper, `resourceListEnvelope`, `StatusGetter` interface,
+per-vdom gauge labeling).
 
 ### Flowchart
 ```mermaid
@@ -213,6 +221,70 @@ Current architecture (`internal/fortiweb/client.go`, `internal/collector/collect
   metrics documentation section, alongside the already-documented gauges.
 - **Verification**: `grep -c "fortiweb_server_policy_count\|fortiweb_content_routing_count\|fortiweb_server_pool_count" README.md` returns `3` (or more, if mentioned in
   multiple places).
+
+## Amendment: 4 more resource types (2026-09-18)
+
+Adds `protection-profile`, `allowed-hosts`, `virtual-server`, and `signature`
+resource-count gauges, reusing the Task 1/2 architecture exactly (no new design
+decisions — same all-or-nothing failure mode, same `vdom` label, same shared
+`resourceListEnvelope`/`getResourceCount` helper). Endpoints (from
+`/home/ndkprd/devel/itops/arahin/.agents/refs/fortiweb_api.md`):
+
+| Resource | Endpoint |
+|---|---|
+| `protection-profile` | `GET /api/v2.0/cmdb/waf/web-protection-profile.inline-protection` |
+| `allowed-hosts` | `GET /api/v2.0/cmdb/server-policy/allow-hosts` |
+| `virtual-server` | `GET /api/v2.0/cmdb/server-policy/vserver` |
+| `signature` | `GET /api/v2.0/cmdb/waf/signature` |
+
+`allowed-hosts` and `virtual-server`/`signature` "Get List" endpoints have no
+confirmed sample JSON in the refs (same assumption as the original 3: `Get List`
+returns `{"results":[...]}`, count = `len(results)`). `protection-profile`'s
+refs entry only shows a `Get Detail` (with `mkey`) sample, which is a *flat
+object* (`{"results": {...}}`), not a list — but `Get List` (no `mkey`) is
+assumed to follow the same list convention as every other resource type, per
+the same accepted assumption already used for the original 3 resources.
+
+### Task 5: Add 4 resource-count client methods *(depends on Task 1)*
+- **Status**: pending
+- **Date**: 2026-09-18
+- **Related file**: `internal/fortiweb/client.go`, `internal/fortiweb/client_test.go`
+- **Objective**: Add 4 more path constants and public methods on `fortiweb.Client`
+  — `GetProtectionProfileCount`, `GetAllowedHostsCount`, `GetVirtualServerCount`,
+  `GetSignatureCount` — each a thin wrapper around the existing
+  `getResourceCount(ctx, path)` helper (same as `GetServerPolicyCount` etc.), using
+  the endpoints in the table above. No new envelope type needed —
+  `resourceListEnvelope` is reused as-is.
+- **Verification**: `go test ./internal/fortiweb/... -v` passes, extending
+  `TestResourceCountMethods`'s table with the 4 new methods/paths (same
+  `{"results":[{},{},{}]}` → count `3` fixture, plus path assertions).
+
+### Task 6: Extend the collector with the 4 new gauges *(depends on Task 5, Task 2)*
+- **Status**: pending
+- **Date**: 2026-09-18
+- **Related file**: `internal/collector/collector.go`, `internal/collector/collector_test.go`
+- **Objective**: Extend `StatusGetter` with the 4 new method signatures. Add 4 more
+  `*prometheus.Desc` fields (`variableLabels: []string{"vdom"}`):
+  `fortiweb_protection_profile_count`, `fortiweb_allowed_hosts_count`,
+  `fortiweb_virtual_server_count`, `fortiweb_signature_count`. In `Collect()`, call
+  the 4 new methods after the existing ones; any failure degrades to
+  `fortiweb_up 0` only (same all-or-nothing convention, no partial degrade). Update
+  `Describe()` accordingly.
+- **Verification**: `go test ./internal/collector/... -v` passes — extend the fake
+  `StatusGetter` and the `TestCollect_Success`/`TestCollect_ResourceCountFailure`
+  fixtures to cover all 4 new gauges/labels.
+
+### Task 7: Wire the fake in `internal/handler` + document in README *(depends on Task 6)*
+- **Status**: pending
+- **Date**: 2026-09-18
+- **Related file**: `internal/handler/probe_test.go`, `README.md`
+- **Objective**: Extend `probe_test.go`'s local `fakeStatusGetter` with the 4 new
+  `StatusGetter` methods (compile requirement, same as Task 3's fake update for the
+  original 3). Add the 4 new metric names (each noting the `vdom` label) to
+  `README.md`'s `## Metrics` table.
+- **Verification**: `go test ./internal/handler/...` passes. `grep -c
+  "fortiweb_protection_profile_count\|fortiweb_allowed_hosts_count\|fortiweb_virtual_server_count\|fortiweb_signature_count"
+  README.md` returns `4` (or more).
 
 ## FAQ
 
