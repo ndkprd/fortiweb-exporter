@@ -42,11 +42,13 @@ fortiweb:
     url: "https://10.0.1.10"
     username: "admin"
     password: "changeme"
+    vdom: "root"
     insecure_skip_verify: true
   fwb-02.example.com:
     url: "https://10.0.2.10"
     username: "admin"
     password: "changeme"
+    vdom: "root"
     insecure_skip_verify: true
 listen_address: ":9633"
 metrics_path: "/metrics"
@@ -55,8 +57,9 @@ metrics_path: "/metrics"
 | Field | Required | Default | Description |
 |---|---|---|---|
 | `fortiweb.<name>.url` | yes | — | Base URL of that FortiWeb appliance's REST API. |
-| `fortiweb.<name>.username` | yes | — | Admin username, sent via HTTP Basic Auth. |
-| `fortiweb.<name>.password` | yes | — | Admin password, sent via HTTP Basic Auth. |
+| `fortiweb.<name>.username` | yes | — | Admin username. |
+| `fortiweb.<name>.password` | yes | — | Admin password. |
+| `fortiweb.<name>.vdom` | no | `root` | Virtual domain to authenticate into — use `root` if the appliance doesn't use VDOMs. |
 | `fortiweb.<name>.insecure_skip_verify` | no | `false` | Skip TLS certificate verification — useful for appliances with self-signed certs. |
 | `listen_address` | no | `:9633` | Address the exporter's HTTP server listens on. |
 | `metrics_path` | no | `/metrics` | Path the Prometheus metrics are served on. |

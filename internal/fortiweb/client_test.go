@@ -2,6 +2,8 @@ package fortiweb
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -21,16 +23,14 @@ const validStatusResponse = `{
 }`
 
 func TestGetSystemResourceStatus_AuthHeaderAndPath(t *testing.T) {
-	const wantUsername, wantPassword = "admin", "changeme"
+	const wantUsername, wantPassword, wantVDOM = "admin", "changeme", "root"
 
-	var gotMethod, gotPath string
-	var gotUsername, gotPassword string
-	var gotOK bool
+	var gotMethod, gotPath, gotAuthHeader string
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
-		gotUsername, gotPassword, gotOK = r.BasicAuth()
+		gotAuthHeader = r.Header.Get("Authorization")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -38,7 +38,7 @@ func TestGetSystemResourceStatus_AuthHeaderAndPath(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, wantUsername, wantPassword, false)
+	client := NewClient(server.URL, wantUsername, wantPassword, wantVDOM, false)
 	if _, err := client.GetSystemResourceStatus(context.Background()); err != nil {
 		t.Fatalf("GetSystemResourceStatus() returned unexpected error: %v", err)
 	}
@@ -50,11 +50,19 @@ func TestGetSystemResourceStatus_AuthHeaderAndPath(t *testing.T) {
 	if gotPath != wantPath {
 		t.Errorf("request path = %q, want %q", gotPath, wantPath)
 	}
-	if !gotOK {
-		t.Fatal("request had no Basic Auth credentials")
+
+	decoded, err := base64.StdEncoding.DecodeString(gotAuthHeader)
+	if err != nil {
+		t.Fatalf("Authorization header %q is not valid base64: %v", gotAuthHeader, err)
 	}
-	if gotUsername != wantUsername || gotPassword != wantPassword {
-		t.Errorf("Basic Auth = (%q, %q), want (%q, %q)", gotUsername, gotPassword, wantUsername, wantPassword)
+
+	var gotPayload authHeaderPayload
+	if err := json.Unmarshal(decoded, &gotPayload); err != nil {
+		t.Fatalf("decoded Authorization %q is not valid JSON: %v", decoded, err)
+	}
+	wantPayload := authHeaderPayload{Username: wantUsername, Password: wantPassword, VDOM: wantVDOM}
+	if gotPayload != wantPayload {
+		t.Errorf("decoded Authorization payload = %+v, want %+v", gotPayload, wantPayload)
 	}
 }
 
@@ -66,7 +74,7 @@ func TestGetSystemResourceStatus_ParsesResponse(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "admin", "changeme", false)
+	client := NewClient(server.URL, "admin", "changeme", "root", false)
 	status, err := client.GetSystemResourceStatus(context.Background())
 	if err != nil {
 		t.Fatalf("GetSystemResourceStatus() returned unexpected error: %v", err)
@@ -93,7 +101,7 @@ func TestGetSystemResourceStatus_NonOKStatus(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "admin", "wrong-password", false)
+	client := NewClient(server.URL, "admin", "wrong-password", "root", false)
 	_, err := client.GetSystemResourceStatus(context.Background())
 	if err == nil {
 		t.Fatal("GetSystemResourceStatus() returned nil error, want non-nil for a 401 response")
@@ -111,7 +119,7 @@ func TestGetSystemResourceStatus_MalformedJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	client := NewClient(server.URL, "admin", "changeme", false)
+	client := NewClient(server.URL, "admin", "changeme", "root", false)
 	_, err := client.GetSystemResourceStatus(context.Background())
 	if err == nil {
 		t.Fatal("GetSystemResourceStatus() returned nil error, want non-nil for a malformed JSON body")

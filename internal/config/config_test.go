@@ -22,6 +22,7 @@ fortiweb:
     url: "https://fortiweb-01.example.com"
     username: "admin"
     password: "changeme"
+    vdom: "customvdom"
     insecure_skip_verify: true
   fwb-02.example.com:
     url: "https://fortiweb-02.example.com"
@@ -43,12 +44,14 @@ metrics_path: "/custom-metrics"
 				URL:                "https://fortiweb-01.example.com",
 				Username:           "admin",
 				Password:           "changeme",
+				VDOM:               "customvdom",
 				InsecureSkipVerify: true,
 			},
 			"fwb-02.example.com": {
 				URL:                "https://fortiweb-02.example.com",
 				Username:           "admin2",
 				Password:           "changeme2",
+				VDOM:               defaultVDOM,
 				InsecureSkipVerify: false,
 			},
 		},
@@ -94,6 +97,9 @@ fortiweb:
 	}
 	if cfg.MetricsPath != defaultMetricsPath {
 		t.Errorf("MetricsPath = %q, want default %q", cfg.MetricsPath, defaultMetricsPath)
+	}
+	if got := cfg.FortiWeb["fwb-01.example.com"].VDOM; got != defaultVDOM {
+		t.Errorf("VDOM = %q, want default %q", got, defaultVDOM)
 	}
 }
 

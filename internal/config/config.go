@@ -11,6 +11,7 @@ import (
 const (
 	defaultListenAddress = ":9633"
 	defaultMetricsPath   = "/metrics"
+	defaultVDOM          = "root"
 )
 
 // Config is the top-level exporter configuration.
@@ -25,6 +26,7 @@ type FortiWebConfig struct {
 	URL                string `yaml:"url"`
 	Username           string `yaml:"username"`
 	Password           string `yaml:"password"`
+	VDOM               string `yaml:"vdom"`
 	InsecureSkipVerify bool   `yaml:"insecure_skip_verify"`
 }
 
@@ -56,6 +58,12 @@ func (c *Config) applyDefaults() {
 	}
 	if c.MetricsPath == "" {
 		c.MetricsPath = defaultMetricsPath
+	}
+	for name, target := range c.FortiWeb {
+		if target.VDOM == "" {
+			target.VDOM = defaultVDOM
+			c.FortiWeb[name] = target
+		}
 	}
 }
 

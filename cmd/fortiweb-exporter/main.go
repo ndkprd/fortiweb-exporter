@@ -29,7 +29,7 @@ func main() {
 	clients := make(map[string]collector.StatusGetter, len(cfg.FortiWeb))
 	targetNames := make([]string, 0, len(cfg.FortiWeb))
 	for name, target := range cfg.FortiWeb {
-		clients[name] = fortiweb.NewClient(target.URL, target.Username, target.Password, target.InsecureSkipVerify)
+		clients[name] = fortiweb.NewClient(target.URL, target.Username, target.Password, target.VDOM, target.InsecureSkipVerify)
 		targetNames = append(targetNames, name)
 	}
 
