@@ -1,0 +1,7 @@
+fortiweb:
+  url: "https://fortiweb.example.com"
+  username: "admin"
+  password: "changeme"
+  insecure_skip_verify: false
+listen_address: ":9633"
+metrics_path: "/metrics"
