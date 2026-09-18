@@ -10,15 +10,15 @@ import (
 
 const (
 	defaultListenAddress = ":9633"
-	defaultMetricsPath   = "/metrics"
 	defaultVDOM          = "root"
 )
 
-// Config is the top-level exporter configuration.
+// Config is the top-level exporter configuration. HTTP paths (/probe,
+// /metrics) are fixed exporter conventions, not configurable here — see
+// package handler.
 type Config struct {
 	FortiWeb      map[string]FortiWebConfig `yaml:"fortiweb"`
 	ListenAddress string                    `yaml:"listen_address"`
-	MetricsPath   string                    `yaml:"metrics_path"`
 }
 
 // FortiWebConfig holds the target FortiWeb appliance's connection details.
@@ -55,9 +55,6 @@ func Load(path string) (*Config, error) {
 func (c *Config) applyDefaults() {
 	if c.ListenAddress == "" {
 		c.ListenAddress = defaultListenAddress
-	}
-	if c.MetricsPath == "" {
-		c.MetricsPath = defaultMetricsPath
 	}
 	for name, target := range c.FortiWeb {
 		if target.VDOM == "" {

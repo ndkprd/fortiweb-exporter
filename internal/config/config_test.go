@@ -30,7 +30,6 @@ fortiweb:
     password: "changeme2"
     insecure_skip_verify: false
 listen_address: ":9999"
-metrics_path: "/custom-metrics"
 `)
 
 	cfg, err := Load(path)
@@ -56,7 +55,6 @@ metrics_path: "/custom-metrics"
 			},
 		},
 		ListenAddress: ":9999",
-		MetricsPath:   "/custom-metrics",
 	}
 	if len(cfg.FortiWeb) != len(want.FortiWeb) {
 		t.Fatalf("Load() FortiWeb = %+v, want %+v", cfg.FortiWeb, want.FortiWeb)
@@ -72,9 +70,6 @@ metrics_path: "/custom-metrics"
 	}
 	if cfg.ListenAddress != want.ListenAddress {
 		t.Errorf("ListenAddress = %q, want %q", cfg.ListenAddress, want.ListenAddress)
-	}
-	if cfg.MetricsPath != want.MetricsPath {
-		t.Errorf("MetricsPath = %q, want %q", cfg.MetricsPath, want.MetricsPath)
 	}
 }
 
@@ -94,9 +89,6 @@ fortiweb:
 
 	if cfg.ListenAddress != defaultListenAddress {
 		t.Errorf("ListenAddress = %q, want default %q", cfg.ListenAddress, defaultListenAddress)
-	}
-	if cfg.MetricsPath != defaultMetricsPath {
-		t.Errorf("MetricsPath = %q, want default %q", cfg.MetricsPath, defaultMetricsPath)
 	}
 	if got := cfg.FortiWeb["fwb-01.example.com"].VDOM; got != defaultVDOM {
 		t.Errorf("VDOM = %q, want default %q", got, defaultVDOM)

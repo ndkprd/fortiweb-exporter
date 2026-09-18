@@ -14,10 +14,11 @@ const indexPageTemplate = `<!DOCTYPE html>
 <h1>FortiWeb Exporter</h1>
 <p><a href="https://gitlab.com/endekasoft/fortiweb-exporter">gitlab.com/endekasoft/fortiweb-exporter</a></p>
 </header>
+<p><a href="{{.MetricsPath}}">Metrics</a></p>
 <p>Configured targets:</p>
 <ul>
 {{- range .Targets }}
-<li><a href="{{$.MetricsPath}}?target={{.}}">{{.}}</a></li>
+<li><a href="{{$.ProbePath}}?target={{.}}">{{.}}</a></li>
 {{- end }}
 </ul>
 </body>
@@ -29,20 +30,22 @@ var indexTemplate = template.Must(template.New("index").Parse(indexPageTemplate)
 type indexPageData struct {
 	Targets     []string
 	MetricsPath string
+	ProbePath   string
 }
 
-// IndexHandler serves a landing page at "/" listing each configured
-// FortiWeb target as a link to its /metrics?target=NAME endpoint.
+// IndexHandler serves a landing page at "/" linking to the exporter's own
+// metrics endpoint and, for each configured FortiWeb target, a link to its
+// probe endpoint.
 type IndexHandler struct {
 	data indexPageData
 }
 
-// NewIndexHandler builds an IndexHandler listing targetNames as links under
-// metricsPath.
-func NewIndexHandler(targetNames []string, metricsPath string) *IndexHandler {
+// NewIndexHandler builds an IndexHandler listing targetNames as probePath
+// links, alongside a link to metricsPath.
+func NewIndexHandler(targetNames []string, metricsPath, probePath string) *IndexHandler {
 	sorted := append([]string(nil), targetNames...)
 	sort.Strings(sorted)
-	return &IndexHandler{data: indexPageData{Targets: sorted, MetricsPath: metricsPath}}
+	return &IndexHandler{data: indexPageData{Targets: sorted, MetricsPath: metricsPath, ProbePath: probePath}}
 }
 
 // ServeHTTP implements http.Handler.

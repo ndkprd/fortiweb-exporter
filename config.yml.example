@@ -12,4 +12,3 @@ fortiweb:
     vdom: "root"
     insecure_skip_verify: true
 listen_address: ":9633"
-metrics_path: "/metrics"

@@ -35,10 +35,10 @@ func newTestClients() map[string]collector.StatusGetter {
 	}
 }
 
-func TestServeHTTP_MissingTarget(t *testing.T) {
-	h := NewMetricsHandler(newTestClients())
+func TestProbeServeHTTP_MissingTarget(t *testing.T) {
+	h := NewProbeHandler(newTestClients())
 
-	req := httptest.NewRequest("GET", "/metrics", nil)
+	req := httptest.NewRequest("GET", ProbePath, nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -50,10 +50,10 @@ func TestServeHTTP_MissingTarget(t *testing.T) {
 	}
 }
 
-func TestServeHTTP_UnknownTarget(t *testing.T) {
-	h := NewMetricsHandler(newTestClients())
+func TestProbeServeHTTP_UnknownTarget(t *testing.T) {
+	h := NewProbeHandler(newTestClients())
 
-	req := httptest.NewRequest("GET", "/metrics?target=does-not-exist", nil)
+	req := httptest.NewRequest("GET", ProbePath+"?target=does-not-exist", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -65,10 +65,10 @@ func TestServeHTTP_UnknownTarget(t *testing.T) {
 	}
 }
 
-func TestServeHTTP_KnownTarget_Success(t *testing.T) {
-	h := NewMetricsHandler(newTestClients())
+func TestProbeServeHTTP_KnownTarget_Success(t *testing.T) {
+	h := NewProbeHandler(newTestClients())
 
-	req := httptest.NewRequest("GET", "/metrics?target=fwb-01.example.com", nil)
+	req := httptest.NewRequest("GET", ProbePath+"?target=fwb-01.example.com", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -84,10 +84,10 @@ func TestServeHTTP_KnownTarget_Success(t *testing.T) {
 	}
 }
 
-func TestServeHTTP_KnownTarget_UpstreamFailure(t *testing.T) {
-	h := NewMetricsHandler(newTestClients())
+func TestProbeServeHTTP_KnownTarget_UpstreamFailure(t *testing.T) {
+	h := NewProbeHandler(newTestClients())
 
-	req := httptest.NewRequest("GET", "/metrics?target=fwb-02.example.com", nil)
+	req := httptest.NewRequest("GET", ProbePath+"?target=fwb-02.example.com", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 
@@ -103,10 +103,10 @@ func TestServeHTTP_KnownTarget_UpstreamFailure(t *testing.T) {
 	}
 }
 
-func TestServeHTTP_TargetIsolation(t *testing.T) {
-	h := NewMetricsHandler(newTestClients())
+func TestProbeServeHTTP_TargetIsolation(t *testing.T) {
+	h := NewProbeHandler(newTestClients())
 
-	req := httptest.NewRequest("GET", "/metrics?target=fwb-01.example.com", nil)
+	req := httptest.NewRequest("GET", ProbePath+"?target=fwb-01.example.com", nil)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 

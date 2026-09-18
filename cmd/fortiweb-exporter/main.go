@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
@@ -34,13 +35,15 @@ func main() {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(cfg.MetricsPath, handler.NewMetricsHandler(clients))
-	mux.Handle("/", handler.NewIndexHandler(targetNames, cfg.MetricsPath))
+	mux.Handle(handler.ProbePath, handler.NewProbeHandler(clients))
+	mux.Handle(handler.MetricsPath, promhttp.Handler())
+	mux.Handle("/", handler.NewIndexHandler(targetNames, handler.MetricsPath, handler.ProbePath))
 
 	log.Info().
 		Str("event", "fortiweb_exporter_starting").
 		Str("listen_address", cfg.ListenAddress).
-		Str("metrics_path", cfg.MetricsPath).
+		Str("probe_path", handler.ProbePath).
+		Str("metrics_path", handler.MetricsPath).
 		Int("target_count", len(clients)).
 		Msg("starting fortiweb-exporter")
 
