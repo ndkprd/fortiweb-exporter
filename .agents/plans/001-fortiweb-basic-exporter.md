@@ -120,7 +120,7 @@ on `/metrics`, and `docker build` produces a working image.
 ## Tasks
 
 ### Task 1: Scaffold the Go module and project layout
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `go.mod`, `.gitignore`, directory structure
 - **Objective**: Initialize the Go module (`github.com/ndkprd/fortiweb_exporter`, Go
@@ -133,7 +133,7 @@ on `/metrics`, and `docker build` produces a working image.
   --is-inside-work-tree` both succeed.
 
 ### Task 2: Implement config loading
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/config/config.go`, `internal/config/config_test.go`,
   `config.yml.example`
@@ -149,7 +149,7 @@ on `/metrics`, and `docker build` produces a working image.
   omitted.
 
 ### Task 3: Implement the FortiWeb API client
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/fortiweb/client.go`
 - **Objective**: Implement `fortiweb.Client` with a constructor taking base URL,
@@ -169,7 +169,7 @@ on `/metrics`, and `docker build` produces a working image.
   `(*Client).GetSystemResourceStatus` (checkable via `go doc ./internal/fortiweb`).
 
 ### Task 4: Unit tests for the FortiWeb API client
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/fortiweb/client_test.go`
 - **Objective**: Using `net/http/httptest.NewServer`, write tests that (a) assert the
@@ -181,7 +181,7 @@ on `/metrics`, and `docker build` produces a working image.
 - **Verification**: Run `go test ./internal/fortiweb/... -v` — all tests pass.
 
 ### Task 5: Implement the Prometheus collector
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/collector/collector.go`, `internal/collector/collector_test.go`
 - **Objective**: Implement a `prometheus.Collector` that wraps a `fortiweb.Client`
@@ -200,7 +200,7 @@ on `/metrics`, and `docker build` produces a working image.
   returning an error asserts only `fortiweb_up 0` is emitted.
 
 ### Task 6: Wire up `main.go`
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `cmd/fortiweb_exporter/main.go`
 - **Objective**: Add a `--config` flag (default `config.yml`), load config via
@@ -215,7 +215,7 @@ on `/metrics`, and `docker build` produces a working image.
   the server starts and degrades gracefully without a real device).
 
 ### Task 7: Add a Dockerfile
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `Dockerfile`
 - **Objective**: Write a multi-stage Dockerfile (Go build stage on
@@ -227,7 +227,7 @@ on `/metrics`, and `docker build` produces a working image.
   equivalent) starts without a crash loop.
 
 ### Task 8: Write README.md
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `README.md`
 - **Objective**: Document what the exporter does, the exposed metric names/types,
@@ -238,7 +238,7 @@ on `/metrics`, and `docker build` produces a working image.
   succeeds for each of those section headers.
 
 ### Task 9: Add MIT LICENSE
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `LICENSE`
 - **Objective**: Add the standard MIT License text with the current year (2026) and
