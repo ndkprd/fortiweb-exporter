@@ -10,7 +10,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/config"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/handler"
@@ -27,15 +26,18 @@ func main() {
 		log.Fatal().Str("event", "config_load_failed").Err(err).Msg("failed to load config")
 	}
 
-	clients := make(map[string]collector.StatusGetter, len(cfg.FortiWeb))
+	targets := make(map[string]handler.Target, len(cfg.FortiWeb))
 	targetNames := make([]string, 0, len(cfg.FortiWeb))
 	for name, target := range cfg.FortiWeb {
-		clients[name] = fortiweb.NewClient(target.URL, target.Username, target.Password, target.VDOM, target.InsecureSkipVerify)
+		targets[name] = handler.Target{
+			Client: fortiweb.NewClient(target.URL, target.Username, target.Password, target.VDOM, target.InsecureSkipVerify),
+			VDOM:   target.VDOM,
+		}
 		targetNames = append(targetNames, name)
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(handler.ProbePath, handler.NewProbeHandler(clients))
+	mux.Handle(handler.ProbePath, handler.NewProbeHandler(targets))
 	mux.Handle(handler.MetricsPath, promhttp.Handler())
 	mux.Handle("/", handler.NewIndexHandler(targetNames, handler.MetricsPath, handler.ProbePath))
 
@@ -44,7 +46,7 @@ func main() {
 		Str("listen_address", cfg.ListenAddress).
 		Str("probe_path", handler.ProbePath).
 		Str("metrics_path", handler.MetricsPath).
-		Int("target_count", len(clients)).
+		Int("target_count", len(targets)).
 		Msg("starting fortiweb-exporter")
 
 	if err := http.ListenAndServe(cfg.ListenAddress, mux); err != nil {

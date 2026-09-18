@@ -34,6 +34,9 @@ These are returned by `/probe?target=NAME`:
 | `fortiweb_connections_per_second` | gauge | FortiWeb connections per second. |
 | `fortiweb_log_disk_available` | gauge | Whether the FortiWeb log disk is available (`1`) or not (`0`). |
 | `fortiweb_db_status_available` | gauge | Whether the FortiWeb database status is available (`1`) or not (`0`). |
+| `fortiweb_server_policy_count` | gauge | Current number of server-policy objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_content_routing_count` | gauge | Current number of content-routing-policy objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_server_pool_count` | gauge | Current number of server-pool objects configured on the target's vdom. Labeled `vdom`. |
 
 When the `target` is valid but the FortiWeb API call itself fails (network
 error, auth failure, non-2xx response), `/probe` still returns `200 OK` with

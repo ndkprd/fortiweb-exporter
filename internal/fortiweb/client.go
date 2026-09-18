@@ -31,6 +31,19 @@ type systemResourceStatusEnvelope struct {
 	Results SystemResourceStatus `json:"results"`
 }
 
+// resourceListEnvelope is the shape of FortiWeb's "Get List" endpoints:
+// {"results": [...]}. Callers only need the count, so entries are left
+// undecoded.
+type resourceListEnvelope struct {
+	Results []json.RawMessage `json:"results"`
+}
+
+const (
+	serverPolicyListPath   = "/api/v2.0/cmdb/server-policy/policy"
+	contentRoutingListPath = "/api/v2.0/cmdb/server-policy/http-content-routing-policy"
+	serverPoolListPath     = "/api/v2.0/cmdb/server-policy/server-pool"
+)
+
 // authHeaderPayload is the JSON object FortiWeb expects to be base64-encoded
 // into the Authorization header value.
 type authHeaderPayload struct {
@@ -89,7 +102,7 @@ func (c *Client) authHeaderValue() (string, error) {
 // GetSystemResourceStatus fetches CPU, memory, disk, session, and connection
 // metrics from the FortiWeb appliance.
 func (c *Client) GetSystemResourceStatus(ctx context.Context) (*SystemResourceStatus, error) {
-	resp, err := c.doStatusRequest(ctx)
+	resp, err := c.doGetRequest(ctx, "/api/v2.0/system/status.systemresource")
 	if err != nil {
 		return nil, err
 	}
@@ -107,10 +120,45 @@ func (c *Client) GetSystemResourceStatus(ctx context.Context) (*SystemResourceSt
 	return &envelope.Results, nil
 }
 
-func (c *Client) doStatusRequest(ctx context.Context) (*http.Response, error) {
-	url := c.baseURL + "/api/v2.0/system/status.systemresource"
+// GetServerPolicyCount returns the number of server-policy objects configured
+// on the client's vdom.
+func (c *Client) GetServerPolicyCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, serverPolicyListPath)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+// GetContentRoutingCount returns the number of content-routing-policy objects
+// configured on the client's vdom.
+func (c *Client) GetContentRoutingCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, contentRoutingListPath)
+}
+
+// GetServerPoolCount returns the number of server-pool objects configured on
+// the client's vdom.
+func (c *Client) GetServerPoolCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, serverPoolListPath)
+}
+
+func (c *Client) getResourceCount(ctx context.Context, path string) (int, error) {
+	resp, err := c.doGetRequest(ctx, path)
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return 0, fmt.Errorf("fortiweb: unexpected status %d: %s", resp.StatusCode, readSnippet(resp.Body))
+	}
+
+	var envelope resourceListEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return 0, fmt.Errorf("fortiweb: decode resource list %s: %w", path, err)
+	}
+
+	return len(envelope.Results), nil
+}
+
+func (c *Client) doGetRequest(ctx context.Context, path string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fortiweb: build request: %w", err)
 	}
@@ -123,7 +171,7 @@ func (c *Client) doStatusRequest(ctx context.Context) (*http.Response, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("fortiweb: request system resource status: %w", err)
+		return nil, fmt.Errorf("fortiweb: request %s: %w", path, err)
 	}
 
 	return resp, nil

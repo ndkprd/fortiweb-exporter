@@ -12,33 +12,40 @@ import (
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
 )
 
+// Target is a configured FortiWeb appliance, ready to be scraped: a client
+// plus the vdom it's scoped to (used to label vdom-specific gauges).
+type Target struct {
+	Client collector.StatusGetter
+	VDOM   string
+}
+
 // ProbeHandler serves ProbePath?target=NAME, scraping only the FortiWeb
 // appliance registered under that name.
 type ProbeHandler struct {
-	clients map[string]collector.StatusGetter
+	targets map[string]Target
 }
 
-// NewProbeHandler builds a ProbeHandler over a pre-built set of clients, one
+// NewProbeHandler builds a ProbeHandler over a pre-built set of targets, one
 // per configured FortiWeb target name.
-func NewProbeHandler(clients map[string]collector.StatusGetter) *ProbeHandler {
-	return &ProbeHandler{clients: clients}
+func NewProbeHandler(targets map[string]Target) *ProbeHandler {
+	return &ProbeHandler{targets: targets}
 }
 
 // ServeHTTP implements http.Handler.
 func (h *ProbeHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	target := r.URL.Query().Get("target")
-	if target == "" {
+	name := r.URL.Query().Get("target")
+	if name == "" {
 		http.Error(w, "target parameter is required", http.StatusBadRequest)
 		return
 	}
 
-	client, ok := h.clients[target]
+	target, ok := h.targets[name]
 	if !ok {
-		http.Error(w, fmt.Sprintf("unknown target %q", target), http.StatusBadRequest)
+		http.Error(w, fmt.Sprintf("unknown target %q", name), http.StatusBadRequest)
 		return
 	}
 
 	registry := prometheus.NewRegistry()
-	registry.MustRegister(collector.NewCollector(client))
+	registry.MustRegister(collector.NewCollector(target.Client, target.VDOM))
 	promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 }

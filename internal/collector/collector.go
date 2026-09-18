@@ -12,15 +12,20 @@ import (
 
 const availableStatus = "Available"
 
-// StatusGetter fetches FortiWeb system resource status. *fortiweb.Client
-// satisfies this interface; tests can supply a fake.
+// StatusGetter fetches FortiWeb system resource status and resource counts.
+// *fortiweb.Client satisfies this interface; tests can supply a fake.
 type StatusGetter interface {
 	GetSystemResourceStatus(ctx context.Context) (*fortiweb.SystemResourceStatus, error)
+	GetServerPolicyCount(ctx context.Context) (int, error)
+	GetContentRoutingCount(ctx context.Context) (int, error)
+	GetServerPoolCount(ctx context.Context) (int, error)
 }
 
-// Collector adapts a StatusGetter into a prometheus.Collector.
+// Collector adapts a StatusGetter into a prometheus.Collector, labeling the
+// vdom-scoped resource-count gauges with the client's own configured vdom.
 type Collector struct {
 	client StatusGetter
+	vdom   string
 
 	up                   *prometheus.Desc
 	cpuUsagePercent      *prometheus.Desc
@@ -30,12 +35,17 @@ type Collector struct {
 	connectionsPerSecond *prometheus.Desc
 	logDiskAvailable     *prometheus.Desc
 	dbStatusAvailable    *prometheus.Desc
+	serverPolicyCount    *prometheus.Desc
+	contentRoutingCount  *prometheus.Desc
+	serverPoolCount      *prometheus.Desc
 }
 
-// NewCollector builds a Collector that scrapes status from client.
-func NewCollector(client StatusGetter) *Collector {
+// NewCollector builds a Collector that scrapes status from client, labeling
+// its resource-count gauges with vdom.
+func NewCollector(client StatusGetter, vdom string) *Collector {
 	return &Collector{
 		client: client,
+		vdom:   vdom,
 		up: prometheus.NewDesc(
 			"fortiweb_up",
 			"Whether the last scrape of the FortiWeb API succeeded (1 for success, 0 for failure).",
@@ -76,6 +86,21 @@ func NewCollector(client StatusGetter) *Collector {
 			"Whether the FortiWeb database status is available (1) or not (0).",
 			nil, nil,
 		),
+		serverPolicyCount: prometheus.NewDesc(
+			"fortiweb_server_policy_count",
+			"Current number of server-policy objects configured on the vdom.",
+			[]string{"vdom"}, nil,
+		),
+		contentRoutingCount: prometheus.NewDesc(
+			"fortiweb_content_routing_count",
+			"Current number of content-routing-policy objects configured on the vdom.",
+			[]string{"vdom"}, nil,
+		),
+		serverPoolCount: prometheus.NewDesc(
+			"fortiweb_server_pool_count",
+			"Current number of server-pool objects configured on the vdom.",
+			[]string{"vdom"}, nil,
+		),
 	}
 }
 
@@ -89,20 +114,49 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.connectionsPerSecond
 	ch <- c.logDiskAvailable
 	ch <- c.dbStatusAvailable
+	ch <- c.serverPolicyCount
+	ch <- c.contentRoutingCount
+	ch <- c.serverPoolCount
 }
 
 // Collect implements prometheus.Collector. It never panics and always emits
-// at least fortiweb_up, degrading gracefully when the FortiWeb API call
-// fails.
+// at least fortiweb_up, degrading gracefully (all-or-nothing) when any
+// FortiWeb API call fails.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
-	status, err := c.client.GetSystemResourceStatus(context.Background())
+	ctx := context.Background()
+
+	status, err := c.client.GetSystemResourceStatus(ctx)
 	if err != nil {
 		log.Error().Str("event", "fortiweb_scrape_failed").Err(err).Msg("failed to scrape FortiWeb system resource status")
 		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
 		return
 	}
 
+	serverPolicyCount, err := c.client.GetServerPolicyCount(ctx)
+	if err != nil {
+		log.Error().Str("event", "fortiweb_scrape_failed").Err(err).Msg("failed to scrape FortiWeb server-policy count")
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+
+	contentRoutingCount, err := c.client.GetContentRoutingCount(ctx)
+	if err != nil {
+		log.Error().Str("event", "fortiweb_scrape_failed").Err(err).Msg("failed to scrape FortiWeb content-routing count")
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+
+	serverPoolCount, err := c.client.GetServerPoolCount(ctx)
+	if err != nil {
+		log.Error().Str("event", "fortiweb_scrape_failed").Err(err).Msg("failed to scrape FortiWeb server-pool count")
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+
 	c.collectStatus(ch, status)
+	ch <- prometheus.MustNewConstMetric(c.serverPolicyCount, prometheus.GaugeValue, float64(serverPolicyCount), c.vdom)
+	ch <- prometheus.MustNewConstMetric(c.contentRoutingCount, prometheus.GaugeValue, float64(contentRoutingCount), c.vdom)
+	ch <- prometheus.MustNewConstMetric(c.serverPoolCount, prometheus.GaugeValue, float64(serverPoolCount), c.vdom)
 }
 
 func (c *Collector) collectStatus(ch chan<- prometheus.Metric, status *fortiweb.SystemResourceStatus) {

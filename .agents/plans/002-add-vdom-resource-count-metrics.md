@@ -135,7 +135,7 @@ Current architecture (`internal/fortiweb/client.go`, `internal/collector/collect
 ## Tasks
 
 ### Task 1: Add 3 resource-count client methods
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/fortiweb/client.go`, `internal/fortiweb/client_test.go`
 - **Objective**: Add a `resourceListEnvelope` (or reuse a generic
@@ -154,7 +154,7 @@ Current architecture (`internal/fortiweb/client.go`, `internal/collector/collect
   response surfaces a non-nil error.
 
 ### Task 2: Extend the collector with the 3 new gauges *(depends on Task 1)*
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/collector/collector.go`, `internal/collector/collector_test.go`
 - **Objective**: Extend `StatusGetter` with the 3 new method signatures. Add a
@@ -176,7 +176,7 @@ Current architecture (`internal/fortiweb/client.go`, `internal/collector/collect
   style.
 
 ### Task 3: Wire the target's vdom into `NewCollector` at request time *(depends on Task 2)*
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `cmd/fortiweb-exporter/main.go`, `internal/handler/probe.go`,
   `internal/handler/probe_test.go`
@@ -205,7 +205,7 @@ Current architecture (`internal/fortiweb/client.go`, `internal/collector/collect
   after the signature change).
 
 ### Task 4: Document the 3 new metrics in README
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `README.md`
 - **Objective**: Add `fortiweb_server_policy_count`, `fortiweb_content_routing_count`,

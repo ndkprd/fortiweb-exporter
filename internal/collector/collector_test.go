@@ -13,10 +13,27 @@ import (
 type fakeStatusGetter struct {
 	status *fortiweb.SystemResourceStatus
 	err    error
+
+	serverPolicyCount   int
+	contentRoutingCount int
+	serverPoolCount     int
+	countErr            error
 }
 
 func (f *fakeStatusGetter) GetSystemResourceStatus(context.Context) (*fortiweb.SystemResourceStatus, error) {
 	return f.status, f.err
+}
+
+func (f *fakeStatusGetter) GetServerPolicyCount(context.Context) (int, error) {
+	return f.serverPolicyCount, f.countErr
+}
+
+func (f *fakeStatusGetter) GetContentRoutingCount(context.Context) (int, error) {
+	return f.contentRoutingCount, f.countErr
+}
+
+func (f *fakeStatusGetter) GetServerPoolCount(context.Context) (int, error) {
+	return f.serverPoolCount, f.countErr
 }
 
 func TestCollect_Success(t *testing.T) {
@@ -30,8 +47,11 @@ func TestCollect_Success(t *testing.T) {
 			LogDisk:       "Available",
 			DBStatus:      "Available",
 		},
+		serverPolicyCount:   5,
+		contentRoutingCount: 6,
+		serverPoolCount:     7,
 	}
-	collector := NewCollector(fake)
+	collector := NewCollector(fake, "root")
 
 	expected := `
 # HELP fortiweb_up Whether the last scrape of the FortiWeb API succeeded (1 for success, 0 for failure).
@@ -58,6 +78,15 @@ fortiweb_log_disk_available 1
 # HELP fortiweb_db_status_available Whether the FortiWeb database status is available (1) or not (0).
 # TYPE fortiweb_db_status_available gauge
 fortiweb_db_status_available 1
+# HELP fortiweb_server_policy_count Current number of server-policy objects configured on the vdom.
+# TYPE fortiweb_server_policy_count gauge
+fortiweb_server_policy_count{vdom="root"} 5
+# HELP fortiweb_content_routing_count Current number of content-routing-policy objects configured on the vdom.
+# TYPE fortiweb_content_routing_count gauge
+fortiweb_content_routing_count{vdom="root"} 6
+# HELP fortiweb_server_pool_count Current number of server-pool objects configured on the vdom.
+# TYPE fortiweb_server_pool_count gauge
+fortiweb_server_pool_count{vdom="root"} 7
 `
 
 	if err := testutil.CollectAndCompare(collector, strings.NewReader(expected)); err != nil {
@@ -67,7 +96,27 @@ fortiweb_db_status_available 1
 
 func TestCollect_Failure(t *testing.T) {
 	fake := &fakeStatusGetter{err: errors.New("connection refused")}
-	collector := NewCollector(fake)
+	collector := NewCollector(fake, "root")
+
+	expected := `
+# HELP fortiweb_up Whether the last scrape of the FortiWeb API succeeded (1 for success, 0 for failure).
+# TYPE fortiweb_up gauge
+fortiweb_up 0
+`
+
+	if err := testutil.CollectAndCompare(collector, strings.NewReader(expected)); err != nil {
+		t.Fatalf("unexpected collecting result:\n%s", err)
+	}
+}
+
+func TestCollect_ResourceCountFailure(t *testing.T) {
+	fake := &fakeStatusGetter{
+		status: &fortiweb.SystemResourceStatus{
+			CPU: 17,
+		},
+		countErr: errors.New("connection refused"),
+	}
+	collector := NewCollector(fake, "root")
 
 	expected := `
 # HELP fortiweb_up Whether the last scrape of the FortiWeb API succeeded (1 for success, 0 for failure).

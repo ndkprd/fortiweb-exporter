@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
 )
 
@@ -20,17 +19,35 @@ func (f *fakeStatusGetter) GetSystemResourceStatus(context.Context) (*fortiweb.S
 	return f.status, f.err
 }
 
-func newTestClients() map[string]collector.StatusGetter {
-	return map[string]collector.StatusGetter{
-		"fwb-01.example.com": &fakeStatusGetter{
-			status: &fortiweb.SystemResourceStatus{
-				CPU: 17, Mem: 78, DiskUsage: 79,
-				SessionCount: 21051, ConnCntPerSec: 482,
-				LogDisk: "Available", DBStatus: "Available",
+func (f *fakeStatusGetter) GetServerPolicyCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeStatusGetter) GetContentRoutingCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeStatusGetter) GetServerPoolCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func newTestClients() map[string]Target {
+	return map[string]Target{
+		"fwb-01.example.com": {
+			Client: &fakeStatusGetter{
+				status: &fortiweb.SystemResourceStatus{
+					CPU: 17, Mem: 78, DiskUsage: 79,
+					SessionCount: 21051, ConnCntPerSec: 482,
+					LogDisk: "Available", DBStatus: "Available",
+				},
 			},
+			VDOM: "root",
 		},
-		"fwb-02.example.com": &fakeStatusGetter{
-			err: errors.New("connection refused"),
+		"fwb-02.example.com": {
+			Client: &fakeStatusGetter{
+				err: errors.New("connection refused"),
+			},
+			VDOM: "root",
 		},
 	}
 }
