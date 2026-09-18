@@ -14,10 +14,14 @@ type fakeStatusGetter struct {
 	status *fortiweb.SystemResourceStatus
 	err    error
 
-	serverPolicyCount   int
-	contentRoutingCount int
-	serverPoolCount     int
-	countErr            error
+	serverPolicyCount      int
+	contentRoutingCount    int
+	serverPoolCount        int
+	protectionProfileCount int
+	allowedHostsCount      int
+	virtualServerCount     int
+	signatureCount         int
+	countErr               error
 }
 
 func (f *fakeStatusGetter) GetSystemResourceStatus(context.Context) (*fortiweb.SystemResourceStatus, error) {
@@ -36,6 +40,22 @@ func (f *fakeStatusGetter) GetServerPoolCount(context.Context) (int, error) {
 	return f.serverPoolCount, f.countErr
 }
 
+func (f *fakeStatusGetter) GetProtectionProfileCount(context.Context) (int, error) {
+	return f.protectionProfileCount, f.countErr
+}
+
+func (f *fakeStatusGetter) GetAllowedHostsCount(context.Context) (int, error) {
+	return f.allowedHostsCount, f.countErr
+}
+
+func (f *fakeStatusGetter) GetVirtualServerCount(context.Context) (int, error) {
+	return f.virtualServerCount, f.countErr
+}
+
+func (f *fakeStatusGetter) GetSignatureCount(context.Context) (int, error) {
+	return f.signatureCount, f.countErr
+}
+
 func TestCollect_Success(t *testing.T) {
 	fake := &fakeStatusGetter{
 		status: &fortiweb.SystemResourceStatus{
@@ -47,9 +67,13 @@ func TestCollect_Success(t *testing.T) {
 			LogDisk:       "Available",
 			DBStatus:      "Available",
 		},
-		serverPolicyCount:   5,
-		contentRoutingCount: 6,
-		serverPoolCount:     7,
+		serverPolicyCount:      5,
+		contentRoutingCount:    6,
+		serverPoolCount:        7,
+		protectionProfileCount: 8,
+		allowedHostsCount:      9,
+		virtualServerCount:     10,
+		signatureCount:         11,
 	}
 	collector := NewCollector(fake, "root")
 
@@ -87,6 +111,18 @@ fortiweb_content_routing_count{vdom="root"} 6
 # HELP fortiweb_server_pool_count Current number of server-pool objects configured on the vdom.
 # TYPE fortiweb_server_pool_count gauge
 fortiweb_server_pool_count{vdom="root"} 7
+# HELP fortiweb_protection_profile_count Current number of protection-profile objects configured on the vdom.
+# TYPE fortiweb_protection_profile_count gauge
+fortiweb_protection_profile_count{vdom="root"} 8
+# HELP fortiweb_allowed_hosts_count Current number of allowed-hosts objects configured on the vdom.
+# TYPE fortiweb_allowed_hosts_count gauge
+fortiweb_allowed_hosts_count{vdom="root"} 9
+# HELP fortiweb_virtual_server_count Current number of virtual-server objects configured on the vdom.
+# TYPE fortiweb_virtual_server_count gauge
+fortiweb_virtual_server_count{vdom="root"} 10
+# HELP fortiweb_signature_count Current number of signature objects configured on the vdom.
+# TYPE fortiweb_signature_count gauge
+fortiweb_signature_count{vdom="root"} 11
 `
 
 	if err := testutil.CollectAndCompare(collector, strings.NewReader(expected)); err != nil {

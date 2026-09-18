@@ -120,6 +120,10 @@ func TestResourceCountMethods(t *testing.T) {
 		{"GetServerPolicyCount", (*Client).GetServerPolicyCount, "/api/v2.0/cmdb/server-policy/policy"},
 		{"GetContentRoutingCount", (*Client).GetContentRoutingCount, "/api/v2.0/cmdb/server-policy/http-content-routing-policy"},
 		{"GetServerPoolCount", (*Client).GetServerPoolCount, "/api/v2.0/cmdb/server-policy/server-pool"},
+		{"GetProtectionProfileCount", (*Client).GetProtectionProfileCount, "/api/v2.0/cmdb/waf/web-protection-profile.inline-protection"},
+		{"GetAllowedHostsCount", (*Client).GetAllowedHostsCount, "/api/v2.0/cmdb/server-policy/allow-hosts"},
+		{"GetVirtualServerCount", (*Client).GetVirtualServerCount, "/api/v2.0/cmdb/server-policy/vserver"},
+		{"GetSignatureCount", (*Client).GetSignatureCount, "/api/v2.0/cmdb/waf/signature"},
 	}
 
 	for _, tt := range tests {

@@ -37,6 +37,10 @@ These are returned by `/probe?target=NAME`:
 | `fortiweb_server_policy_count` | gauge | Current number of server-policy objects configured on the target's vdom. Labeled `vdom`. |
 | `fortiweb_content_routing_count` | gauge | Current number of content-routing-policy objects configured on the target's vdom. Labeled `vdom`. |
 | `fortiweb_server_pool_count` | gauge | Current number of server-pool objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_protection_profile_count` | gauge | Current number of protection-profile objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_allowed_hosts_count` | gauge | Current number of allowed-hosts objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_virtual_server_count` | gauge | Current number of virtual-server objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_signature_count` | gauge | Current number of signature objects configured on the target's vdom. Labeled `vdom`. |
 
 When the `target` is valid but the FortiWeb API call itself fails (network
 error, auth failure, non-2xx response), `/probe` still returns `200 OK` with

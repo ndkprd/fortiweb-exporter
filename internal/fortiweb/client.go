@@ -39,9 +39,13 @@ type resourceListEnvelope struct {
 }
 
 const (
-	serverPolicyListPath   = "/api/v2.0/cmdb/server-policy/policy"
-	contentRoutingListPath = "/api/v2.0/cmdb/server-policy/http-content-routing-policy"
-	serverPoolListPath     = "/api/v2.0/cmdb/server-policy/server-pool"
+	serverPolicyListPath      = "/api/v2.0/cmdb/server-policy/policy"
+	contentRoutingListPath    = "/api/v2.0/cmdb/server-policy/http-content-routing-policy"
+	serverPoolListPath        = "/api/v2.0/cmdb/server-policy/server-pool"
+	protectionProfileListPath = "/api/v2.0/cmdb/waf/web-protection-profile.inline-protection"
+	allowedHostsListPath      = "/api/v2.0/cmdb/server-policy/allow-hosts"
+	virtualServerListPath     = "/api/v2.0/cmdb/server-policy/vserver"
+	signatureListPath         = "/api/v2.0/cmdb/waf/signature"
 )
 
 // authHeaderPayload is the JSON object FortiWeb expects to be base64-encoded
@@ -136,6 +140,30 @@ func (c *Client) GetContentRoutingCount(ctx context.Context) (int, error) {
 // the client's vdom.
 func (c *Client) GetServerPoolCount(ctx context.Context) (int, error) {
 	return c.getResourceCount(ctx, serverPoolListPath)
+}
+
+// GetProtectionProfileCount returns the number of protection-profile objects
+// configured on the client's vdom.
+func (c *Client) GetProtectionProfileCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, protectionProfileListPath)
+}
+
+// GetAllowedHostsCount returns the number of allowed-hosts objects configured
+// on the client's vdom.
+func (c *Client) GetAllowedHostsCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, allowedHostsListPath)
+}
+
+// GetVirtualServerCount returns the number of virtual-server objects
+// configured on the client's vdom.
+func (c *Client) GetVirtualServerCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, virtualServerListPath)
+}
+
+// GetSignatureCount returns the number of signature objects configured on
+// the client's vdom.
+func (c *Client) GetSignatureCount(ctx context.Context) (int, error) {
+	return c.getResourceCount(ctx, signatureListPath)
 }
 
 func (c *Client) getResourceCount(ctx context.Context, path string) (int, error) {

@@ -31,6 +31,22 @@ func (f *fakeStatusGetter) GetServerPoolCount(context.Context) (int, error) {
 	return 0, f.err
 }
 
+func (f *fakeStatusGetter) GetProtectionProfileCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeStatusGetter) GetAllowedHostsCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeStatusGetter) GetVirtualServerCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
+func (f *fakeStatusGetter) GetSignatureCount(context.Context) (int, error) {
+	return 0, f.err
+}
+
 func newTestClients() map[string]Target {
 	return map[string]Target{
 		"fwb-01.example.com": {

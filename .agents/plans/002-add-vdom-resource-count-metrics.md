@@ -246,7 +246,7 @@ assumed to follow the same list convention as every other resource type, per
 the same accepted assumption already used for the original 3 resources.
 
 ### Task 5: Add 4 resource-count client methods *(depends on Task 1)*
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/fortiweb/client.go`, `internal/fortiweb/client_test.go`
 - **Objective**: Add 4 more path constants and public methods on `fortiweb.Client`
@@ -260,7 +260,7 @@ the same accepted assumption already used for the original 3 resources.
   `{"results":[{},{},{}]}` → count `3` fixture, plus path assertions).
 
 ### Task 6: Extend the collector with the 4 new gauges *(depends on Task 5, Task 2)*
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/collector/collector.go`, `internal/collector/collector_test.go`
 - **Objective**: Extend `StatusGetter` with the 4 new method signatures. Add 4 more
@@ -275,7 +275,7 @@ the same accepted assumption already used for the original 3 resources.
   fixtures to cover all 4 new gauges/labels.
 
 ### Task 7: Wire the fake in `internal/handler` + document in README *(depends on Task 6)*
-- **Status**: pending
+- **Status**: completed
 - **Date**: 2026-09-18
 - **Related file**: `internal/handler/probe_test.go`, `README.md`
 - **Objective**: Extend `probe_test.go`'s local `fakeStatusGetter` with the 4 new
