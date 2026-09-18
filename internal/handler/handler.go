@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/ndkprd/fortiweb_exporter/internal/collector"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/collector"
 )
 
 // MetricsHandler serves /metrics?target=NAME, scraping only the FortiWeb

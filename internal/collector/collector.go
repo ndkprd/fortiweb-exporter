@@ -5,9 +5,9 @@ package collector
 import (
 	"context"
 
-	"github.com/ndkprd/fortiweb_exporter/internal/fortiweb"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
 )
 
 const availableStatus = "Available"

@@ -7,12 +7,12 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ndkprd/fortiweb_exporter/internal/collector"
-	"github.com/ndkprd/fortiweb_exporter/internal/config"
-	"github.com/ndkprd/fortiweb_exporter/internal/fortiweb"
-	"github.com/ndkprd/fortiweb_exporter/internal/handler"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/collector"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/config"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/handler"
 )
 
 func main() {

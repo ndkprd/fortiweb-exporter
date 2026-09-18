@@ -1,4 +1,4 @@
-module github.com/ndkprd/fortiweb_exporter
+module gitlab.com/endekasoft/fortiweb_exporter
 
 go 1.27.1
 

@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ndkprd/fortiweb_exporter/internal/fortiweb"
 	"github.com/prometheus/client_golang/prometheus/testutil"
+	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
 )
 
 type fakeStatusGetter struct {
