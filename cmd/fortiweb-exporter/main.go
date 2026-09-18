@@ -27,12 +27,15 @@ func main() {
 	}
 
 	clients := make(map[string]collector.StatusGetter, len(cfg.FortiWeb))
+	targetNames := make([]string, 0, len(cfg.FortiWeb))
 	for name, target := range cfg.FortiWeb {
 		clients[name] = fortiweb.NewClient(target.URL, target.Username, target.Password, target.InsecureSkipVerify)
+		targetNames = append(targetNames, name)
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle(cfg.MetricsPath, handler.NewMetricsHandler(clients))
+	mux.Handle("/", handler.NewIndexHandler(targetNames, cfg.MetricsPath))
 
 	log.Info().
 		Str("event", "fortiweb_exporter_starting").
