@@ -2,8 +2,10 @@
 
 A Prometheus exporter for [FortiWeb](https://www.fortinet.com/products/web-application-firewall/fortiweb)
 appliances. It scrapes the `api/v2.0/system/status.systemresource` REST
-endpoint on every Prometheus scrape and exposes CPU, memory, disk, session,
-and connection-rate metrics.
+endpoint and exposes CPU, memory, disk, session, and connection-rate metrics.
+It supports multiple FortiWeb appliances from a single exporter instance —
+each scrape selects which one via a `target` query parameter
+(`/metrics?target=NAME`), the same pattern used by `blackbox_exporter`.
 
 ## Metrics
 
@@ -18,38 +20,49 @@ and connection-rate metrics.
 | `fortiweb_log_disk_available` | gauge | Whether the FortiWeb log disk is available (`1`) or not (`0`). |
 | `fortiweb_db_status_available` | gauge | Whether the FortiWeb database status is available (`1`) or not (`0`). |
 
-When the FortiWeb API call fails (network error, auth failure, non-2xx
+When a `target` param is missing or doesn't match a configured target,
+`/metrics` returns `400 Bad Request`. When the `target` is valid but the
+FortiWeb API call itself fails (network error, auth failure, non-2xx
 response), `/metrics` still returns `200 OK` with only `fortiweb_up 0` set —
 the other metrics are simply omitted for that scrape, following Prometheus's
 standard "target down" convention.
 
 ## Configuration
 
-The exporter reads a single target's connection details and credentials from
-a YAML config file (default path `config.yml`, overridable with `--config`).
-See [`config.yml.example`](config.yml.example):
+The exporter reads a map of named FortiWeb targets — each with its own
+connection details and credentials — from a YAML config file (default path
+`config.yml`, overridable with `--config`). The map key is an arbitrary name
+you choose (typically a hostname); it's what you pass as `?target=` and what
+Prometheus's scrape config uses to select which appliance to scrape. See
+[`config.yml.example`](config.yml.example):
 
 ```yaml
 fortiweb:
-  url: "https://fortiweb.example.com"
-  username: "admin"
-  password: "changeme"
-  insecure_skip_verify: false
+  fwb-01.example.com:
+    url: "https://10.0.1.10"
+    username: "admin"
+    password: "changeme"
+    insecure_skip_verify: true
+  fwb-02.example.com:
+    url: "https://10.0.2.10"
+    username: "admin"
+    password: "changeme"
+    insecure_skip_verify: true
 listen_address: ":9633"
 metrics_path: "/metrics"
 ```
 
 | Field | Required | Default | Description |
 |---|---|---|---|
-| `fortiweb.url` | yes | — | Base URL of the FortiWeb appliance's REST API. |
-| `fortiweb.username` | yes | — | Admin username, sent via HTTP Basic Auth. |
-| `fortiweb.password` | yes | — | Admin password, sent via HTTP Basic Auth. |
-| `fortiweb.insecure_skip_verify` | no | `false` | Skip TLS certificate verification — useful for appliances with self-signed certs. |
+| `fortiweb.<name>.url` | yes | — | Base URL of that FortiWeb appliance's REST API. |
+| `fortiweb.<name>.username` | yes | — | Admin username, sent via HTTP Basic Auth. |
+| `fortiweb.<name>.password` | yes | — | Admin password, sent via HTTP Basic Auth. |
+| `fortiweb.<name>.insecure_skip_verify` | no | `false` | Skip TLS certificate verification — useful for appliances with self-signed certs. |
 | `listen_address` | no | `:9633` | Address the exporter's HTTP server listens on. |
 | `metrics_path` | no | `/metrics` | Path the Prometheus metrics are served on. |
 
-`config.yml` is gitignored — never commit real credentials. Copy the example
-file and edit it:
+At least one target must be configured. `config.yml` is gitignored — never
+commit real credentials. Copy the example file and edit it:
 
 ```sh
 cp config.yml.example config.yml
@@ -70,19 +83,29 @@ Or run directly without a separate build step:
 go run ./cmd/fortiweb_exporter --config config.yml
 ```
 
-Then scrape it:
+Then scrape a specific target:
 
 ```sh
-curl http://localhost:9633/metrics
+curl 'http://localhost:9633/metrics?target=fwb-01.example.com'
 ```
 
-Point Prometheus at it with a `scrape_config` like:
+Point Prometheus at it using the standard multi-target relabeling pattern,
+so each configured target name becomes its own scraped `instance`:
 
 ```yaml
 scrape_configs:
   - job_name: fortiweb
     static_configs:
-      - targets: ["localhost:9633"]
+      - targets:
+          - fwb-01.example.com
+          - fwb-02.example.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: localhost:9633 # the fortiweb_exporter's own address
 ```
 
 ## Docker

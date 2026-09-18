@@ -10,8 +10,7 @@ import (
 	"github.com/ndkprd/fortiweb_exporter/internal/collector"
 	"github.com/ndkprd/fortiweb_exporter/internal/config"
 	"github.com/ndkprd/fortiweb_exporter/internal/fortiweb"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/ndkprd/fortiweb_exporter/internal/handler"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
@@ -27,19 +26,19 @@ func main() {
 		log.Fatal().Str("event", "config_load_failed").Err(err).Msg("failed to load config")
 	}
 
-	client := fortiweb.NewClient(cfg.FortiWeb.URL, cfg.FortiWeb.Username, cfg.FortiWeb.Password, cfg.FortiWeb.InsecureSkipVerify)
-
-	registry := prometheus.NewRegistry()
-	registry.MustRegister(collector.NewCollector(client))
+	clients := make(map[string]collector.StatusGetter, len(cfg.FortiWeb))
+	for name, target := range cfg.FortiWeb {
+		clients[name] = fortiweb.NewClient(target.URL, target.Username, target.Password, target.InsecureSkipVerify)
+	}
 
 	mux := http.NewServeMux()
-	mux.Handle(cfg.MetricsPath, promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+	mux.Handle(cfg.MetricsPath, handler.NewMetricsHandler(clients))
 
 	log.Info().
 		Str("event", "fortiweb_exporter_starting").
 		Str("listen_address", cfg.ListenAddress).
 		Str("metrics_path", cfg.MetricsPath).
-		Str("fortiweb_target", cfg.FortiWeb.URL).
+		Int("target_count", len(clients)).
 		Msg("starting fortiweb_exporter")
 
 	if err := http.ListenAndServe(cfg.ListenAddress, mux); err != nil {

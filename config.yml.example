@@ -1,7 +1,13 @@
 fortiweb:
-  url: "https://fortiweb.example.com"
-  username: "admin"
-  password: "changeme"
-  insecure_skip_verify: false
+  fwb-01.example.com:
+    url: "https://10.0.1.10"
+    username: "admin"
+    password: "changeme"
+    insecure_skip_verify: true
+  fwb-02.example.com:
+    url: "https://10.0.2.10"
+    username: "admin"
+    password: "changeme"
+    insecure_skip_verify: true
 listen_address: ":9633"
 metrics_path: "/metrics"

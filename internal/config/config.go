@@ -15,9 +15,9 @@ const (
 
 // Config is the top-level exporter configuration.
 type Config struct {
-	FortiWeb      FortiWebConfig `yaml:"fortiweb"`
-	ListenAddress string         `yaml:"listen_address"`
-	MetricsPath   string         `yaml:"metrics_path"`
+	FortiWeb      map[string]FortiWebConfig `yaml:"fortiweb"`
+	ListenAddress string                    `yaml:"listen_address"`
+	MetricsPath   string                    `yaml:"metrics_path"`
 }
 
 // FortiWebConfig holds the target FortiWeb appliance's connection details.
@@ -60,14 +60,26 @@ func (c *Config) applyDefaults() {
 }
 
 func (c *Config) validate() error {
-	if c.FortiWeb.URL == "" {
-		return fmt.Errorf("fortiweb.url is required")
+	if len(c.FortiWeb) == 0 {
+		return fmt.Errorf("at least one fortiweb target must be configured")
 	}
-	if c.FortiWeb.Username == "" {
-		return fmt.Errorf("fortiweb.username is required")
+	for name, target := range c.FortiWeb {
+		if err := target.validate(); err != nil {
+			return fmt.Errorf("target %q: %w", name, err)
+		}
 	}
-	if c.FortiWeb.Password == "" {
-		return fmt.Errorf("fortiweb.password is required")
+	return nil
+}
+
+func (t FortiWebConfig) validate() error {
+	if t.URL == "" {
+		return fmt.Errorf("url is required")
+	}
+	if t.Username == "" {
+		return fmt.Errorf("username is required")
+	}
+	if t.Password == "" {
+		return fmt.Errorf("password is required")
 	}
 	return nil
 }

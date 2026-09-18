@@ -1,19 +1,31 @@
 # Plan: FortiWeb Prometheus Exporter (basic system-resource metrics)
 
 ## Overview
-Build a small Go binary that queries a single FortiWeb appliance's
-`api/v2.0/system/status.systemresource` REST endpoint on every Prometheus scrape and
-exposes CPU, memory, disk, session, and connection-rate metrics on a `/metrics` HTTP
-endpoint. Authentication credentials and target configuration live in a `config.yml`
-file; auth is done with HTTP Basic Auth against the FortiWeb REST API.
+Build a small Go binary that queries one or more FortiWeb appliances'
+`api/v2.0/system/status.systemresource` REST endpoint and exposes CPU, memory, disk,
+session, and connection-rate metrics on a `/metrics` HTTP endpoint. Each configured
+appliance is scraped independently via a `target` query parameter
+(`/metrics?target=fwb-01.dc1.asdp.id`), following the standard multi-target
+Prometheus exporter pattern (the same one `blackbox_exporter`/`snmp_exporter` use).
+Per-target connection details and credentials live in a `config.yml` file, keyed by
+target name; auth is done with HTTP Basic Auth against the FortiWeb REST API.
+
+> **Amendment (2026-09-18):** the original version of this plan (Tasks 1-9,
+> already implemented) supported exactly one FortiWeb target with no `target` param.
+> This amendment (Tasks 10-13) extends it to multiple targets, keyed by name in
+> `config.yml`, selected per-scrape via `?target=`. See the updated Constraints/Scope
+> below — "single target" is no longer a constraint.
 
 ### Flowchart
 ```mermaid
 flowchart TD
-    A[Prometheus server] -->|HTTP GET /metrics| B[fortiweb_exporter]
+    A[Prometheus server] -->|HTTP GET /metrics?target=NAME| B[fortiweb_exporter]
     B --> C{Load config.yml}
-    C -->|target, creds, TLS opt| D[FortiWeb API client]
-    D -->|GET /api/v2.0/system/status.systemresource\nAuthorization: Basic user:pass| E[FortiWeb appliance]
+    C -->|map: NAME -> url/creds/TLS opt| G[Pre-built Client per target]
+    B --> H{Resolve target param against config map}
+    H -->|missing/unknown target| I[400 Bad Request]
+    H -->|known target| D[FortiWeb API client for NAME]
+    D -->|GET /api/v2.0/system/status.systemresource\nAuthorization: Basic user:pass| E[FortiWeb appliance NAME]
     E -->|JSON: cpu, mem, diskUsage,\nsessionCount, connCntPerSec,\nlogDisk, dbStatus| D
     D --> F[Prometheus Collector]
     F -->|gauges: fortiweb_up,\nfortiweb_cpu_usage_percent, ...| B
@@ -25,16 +37,21 @@ flowchart TD
 sequenceDiagram
     participant P as Prometheus
     participant E as fortiweb_exporter
-    participant F as FortiWeb API
+    participant F as FortiWeb API (target)
 
-    P->>E: GET /metrics
-    E->>F: GET /api/v2.0/system/status.systemresource\n(Authorization: Basic base64(user:pass))
-    alt success
-        F-->>E: 200 OK { results: { cpu, mem, diskUsage, sessionCount, connCntPerSec, logDisk, dbStatus } }
-        E-->>P: 200 OK metrics (fortiweb_up 1, fortiweb_cpu_usage_percent ...)
-    else failure (network/auth/5xx)
-        F-->>E: error / non-200
-        E-->>P: 200 OK metrics (fortiweb_up 0 only)
+    P->>E: GET /metrics?target=fwb-01.dc1.asdp.id
+    E->>E: look up pre-built client for target in config map
+    alt missing/unknown target
+        E-->>P: 400 Bad Request
+    else known target
+        E->>F: GET /api/v2.0/system/status.systemresource\n(Authorization: Basic base64(user:pass))
+        alt success
+            F-->>E: 200 OK { results: { cpu, mem, diskUsage, sessionCount, connCntPerSec, logDisk, dbStatus } }
+            E-->>P: 200 OK metrics (fortiweb_up 1, fortiweb_cpu_usage_percent ...)
+        else failure (network/auth/5xx)
+            F-->>E: error / non-200
+            E-->>P: 200 OK metrics (fortiweb_up 0 only)
+        end
     end
 ```
 
@@ -57,20 +74,27 @@ HTTP client must support an opt-in, config-driven `insecure_skip_verify` flag.
 
 ## Objective
 Running `fortiweb_exporter --config config.yml` starts an HTTP server that:
-1. Loads target URL, username, password, and TLS option from `config.yml`.
-2. On every `GET /metrics`, calls the FortiWeb `system/status.systemresource`
-   endpoint using HTTP Basic Auth.
-3. Exposes these Prometheus gauges: `fortiweb_up`, `fortiweb_cpu_usage_percent`,
+1. Loads a map of named FortiWeb targets (each with URL, username, password, and
+   TLS option) from `config.yml`.
+2. On every `GET /metrics?target=NAME`, resolves `NAME` against the configured
+   targets and calls that target's FortiWeb `system/status.systemresource` endpoint
+   using HTTP Basic Auth. Requests with a missing or unrecognized `target` param get
+   `400 Bad Request` instead of being silently ignored.
+3. Exposes these Prometheus gauges (unlabeled — one target's values per scrape,
+   Prometheus assigns the `instance` label via its own relabeling, same convention
+   as `blackbox_exporter`'s `/probe`): `fortiweb_up`, `fortiweb_cpu_usage_percent`,
    `fortiweb_memory_usage_percent`, `fortiweb_disk_usage_percent`,
    `fortiweb_session_count`, `fortiweb_connections_per_second`,
    `fortiweb_log_disk_available`, `fortiweb_db_status_available`.
-4. Degrades gracefully: if the FortiWeb API call fails, `/metrics` still returns
-   `200 OK` with only `fortiweb_up 0` set (Prometheus's standard "target failed"
-   convention), rather than erroring the whole scrape.
+4. Degrades gracefully: if the FortiWeb API call fails, `/metrics?target=NAME` still
+   returns `200 OK` with only `fortiweb_up 0` set (Prometheus's standard "target
+   failed" convention), rather than erroring the whole scrape.
 
 Done = `go build ./...` succeeds, `go test ./...` passes (including the FortiWeb
-client unit tests), a manually-run binary serves valid Prometheus exposition format
-on `/metrics`, and `docker build` produces a working image.
+client and multi-target handler unit tests), a manually-run binary serves valid
+Prometheus exposition format on `/metrics?target=NAME` for each configured target,
+returns `400` for a missing/unknown target, and `docker build` produces a working
+image.
 
 ## References
 - No existing files — greenfield project. All paths below are new files this plan
@@ -85,8 +109,11 @@ on `/metrics`, and `docker build` produces a working image.
 ## Constraints / Scope
 
 **In scope:**
-- Single FortiWeb target, configured via `config.yml` (no multi-target/multi-device
-  support yet).
+- Multiple FortiWeb targets, configured as a `fortiweb: {name: {...}}` map in
+  `config.yml`, each with its own URL/username/password/TLS option.
+- A `target` query parameter on `/metrics` (`/metrics?target=NAME`) that selects
+  which configured FortiWeb appliance to scrape for that request, matching the
+  standard multi-target Prometheus exporter pattern.
 - Only the `api/v2.0/system/status.systemresource` endpoint.
 - HTTP Basic Auth against the FortiWeb REST API.
 - Config-driven `insecure_skip_verify` TLS option (default `false`).
@@ -100,7 +127,8 @@ on `/metrics`, and `docker build` produces a working image.
 - MIT `LICENSE` file.
 
 **Out of scope:**
-- Multiple FortiWeb targets / multi-target scraping (`?target=` param pattern).
+- Auto-discovery of FortiWeb targets (e.g. via file_sd, DNS, or a cloud API) —
+  targets are only ever explicitly listed in `config.yml`.
 - Any FortiWeb API endpoint other than `system/status.systemresource`.
 - Session-cookie/CSRF-token auth flow (explicitly deferred in favor of Basic Auth).
 - Background polling, caching, or configurable scrape intervals inside the exporter
@@ -109,13 +137,18 @@ on `/metrics`, and `docker build` produces a working image.
 - CI/CD pipeline setup, releases, or Helm charts.
 
 **Non-negotiables:**
-- Credentials (username/password) must only ever be read from `config.yml`, never
-  hardcoded or passed as CLI flags (avoids leaking secrets into shell history/process
-  list).
-- `/metrics` must never panic or return a non-200 due to the upstream FortiWeb call
-  failing — failures must surface as `fortiweb_up 0`.
-- No secrets committed to the repo — `config.yml` (the real one) must be gitignored;
-  only `config.yml.example` with placeholder values is committed.
+- Credentials (per-target username/password) must only ever be read from
+  `config.yml`, never hardcoded or passed as CLI flags (avoids leaking secrets into
+  shell history/process list).
+- `/metrics?target=NAME` must never panic or return a non-200 due to the upstream
+  FortiWeb call failing — failures must surface as `fortiweb_up 0`. A missing or
+  unrecognized `target` param is the one case that *does* return non-200 (`400`),
+  since that's a client request error, not a target-down condition.
+- No secrets committed to the repo — `config.yml` (the real one, including any file
+  containing real per-target credentials) must be gitignored; only
+  `config.yml.example` with placeholder values is committed. Per-target credentials
+  must never appear in logs or error messages (errors returned by the FortiWeb client
+  must not echo the Authorization header or password).
 
 ## Tasks
 
@@ -244,6 +277,131 @@ on `/metrics`, and `docker build` produces a working image.
 - **Objective**: Add the standard MIT License text with the current year (2026) and
   copyright holder attributed to the repo owner.
 - **Verification**: `grep -q "MIT License" LICENSE` succeeds.
+
+## Amendment: multi-target support (2026-09-18)
+
+Tasks 1-9 above shipped a single-target exporter. This amendment adds Tasks 10-13 to
+support multiple FortiWeb targets, selected per-scrape via `?target=`, per the
+updated Overview/Objective/Constraints above.
+
+### Task 10: Change config to a multi-target map
+- **Status**: completed
+- **Date**: 2026-09-18
+- **Related file**: `internal/config/config.go`, `internal/config/config_test.go`,
+  `config.yml.example`
+- **Objective**: Change `Config.FortiWeb` from a single `FortiWebConfig` to
+  `map[string]FortiWebConfig`, keyed by an operator-chosen target name (e.g.
+  `fwb-01.dc1.asdp.id`) — `FortiWebConfig` itself (`URL`, `Username`, `Password`,
+  `InsecureSkipVerify`) is unchanged. Update `validate()` to: (a) return an error if
+  the map is empty ("at least one fortiweb target must be configured"), and (b) for
+  each entry, return an error naming the target key if its `URL`, `Username`, or
+  `Password` is empty (e.g. `fmt.Errorf("target %q: url is required", name)`).
+  Update `config.yml.example` to the map schema with two example targets using
+  placeholder (non-real) values, matching this shape:
+  ```yaml
+  fortiweb:
+    fwb-01.example.com:
+      url: "https://10.0.1.10"
+      username: "admin"
+      password: "changeme"
+      insecure_skip_verify: true
+    fwb-02.example.com:
+      url: "https://10.0.2.10"
+      username: "admin"
+      password: "changeme"
+      insecure_skip_verify: true
+  listen_address: ":9633"
+  metrics_path: "/metrics"
+  ```
+  *(depends on Task 2 — modifies it in place; no dependency on Tasks 11-13)*
+- **Verification**: Run `go test ./internal/config/...` — tests cover: a
+  multi-target file parses into the expected `map[string]FortiWebConfig`; an empty
+  `fortiweb:` map (or the key omitted) produces a non-nil `Load` error; a map with
+  one valid and one invalid (missing password) target produces a non-nil error
+  naming the invalid target's key.
+
+### Task 11: Multi-target `/metrics` HTTP handler
+- **Status**: completed
+- **Date**: 2026-09-18
+- **Related file**: `internal/handler/handler.go`, `internal/handler/handler_test.go`
+- **Objective**: Add package `handler` with `NewMetricsHandler(clients
+  map[string]collector.StatusGetter) http.Handler` (import
+  `github.com/ndkprd/fortiweb_exporter/internal/collector` for the `StatusGetter`
+  interface — `*fortiweb.Client` already satisfies it, so `main.go` passes in a
+  pre-built `map[string]*fortiweb.Client` sourced from `Config.FortiWeb`, no new
+  wrapper type needed). Its `ServeHTTP`:
+  1. Reads `target := r.URL.Query().Get("target")`; if empty, `http.Error(w, "target
+     parameter is required", http.StatusBadRequest)` and return.
+  2. Looks up `target` in `clients`; if absent, `http.Error(w, fmt.Sprintf("unknown
+     target %q", target), http.StatusBadRequest)` and return.
+  3. Otherwise builds a fresh `prometheus.NewRegistry()`, registers
+     `collector.NewCollector(client)`, and delegates to
+     `promhttp.HandlerFor(registry, promhttp.HandlerOpts{}).ServeHTTP(w, r)` — a
+     per-request registry (not a shared global one) so each target's scrape only
+     ever contains that target's 8 gauges, matching `blackbox_exporter`'s `/probe`
+     pattern. *(depends on Task 5's `collector.StatusGetter`/`collector.NewCollector`,
+     already implemented; independent of Task 10)*
+- **Verification**: Run `go test ./internal/handler/... -v` — tests (using a fake
+  `collector.StatusGetter` and `httptest.NewRecorder`/`httptest.NewRequest`) cover:
+  missing `target` param → `400`; unknown `target` → `400` with the target name in
+  the body; known `target` → `200` with a body containing `fortiweb_up 1` (or `0` for
+  a fake that errors) and none of another target's data.
+
+### Task 12: Wire multi-target handler into `main.go`
+- **Status**: completed
+- **Date**: 2026-09-18
+- **Related file**: `cmd/fortiweb_exporter/main.go`
+- **Objective**: Replace the single global `prometheus.Registry` + `collector`
+  wiring with: after `config.Load`, build `clients :=
+  make(map[string]collector.StatusGetter, len(cfg.FortiWeb))` by calling
+  `fortiweb.NewClient(fw.URL, fw.Username, fw.Password, fw.InsecureSkipVerify)` once
+  per entry in `cfg.FortiWeb` (built once at startup, not per-request — `*http.Client`
+  is safe for concurrent use, so no locking needed since the map is never mutated
+  after startup); register `mux.Handle(cfg.MetricsPath,
+  handler.NewMetricsHandler(clients))` instead of the old
+  `promhttp.HandlerFor(...)` line. Startup log line should include the number of
+  configured targets (e.g. `.Int("target_count", len(clients))`) rather than a single
+  `fortiweb_target` URL field (which no longer makes sense for N targets).
+  *(depends on Task 10, Task 11)*
+- **Verification**: `go build -o /tmp/fortiweb_exporter ./cmd/fortiweb_exporter`
+  succeeds. Run it against a `config.yml` with two targets (both pointing at
+  unreachable addresses is fine) and:
+  - `curl -s -o /dev/null -w '%{http_code}' http://localhost:9633/metrics` → `400`
+    (no target param)
+  - `curl -s -o /dev/null -w '%{http_code}' 'http://localhost:9633/metrics?target=nope'`
+    → `400` (unknown target)
+  - `curl -s 'http://localhost:9633/metrics?target=<first-configured-name>' | grep
+    fortiweb_up` → `fortiweb_up 0` (degrades gracefully, same as before)
+
+### Task 13: Update README and Dockerfile usage examples for multi-target
+- **Status**: completed
+- **Date**: 2026-09-18
+- **Related file**: `README.md`
+- **Objective**: Update the `## Configuration` section to document the
+  `fortiweb: {name: {...}}` map schema (replacing the old single-target table), and
+  the `## Usage` section to show `curl 'http://localhost:9633/metrics?target=NAME'`
+  and a Prometheus `scrape_configs` example using the standard multi-target
+  relabeling pattern:
+  ```yaml
+  scrape_configs:
+    - job_name: fortiweb
+      static_configs:
+        - targets:
+            - fwb-01.dc1.asdp.id
+            - fwb-01.dc2.asdp.id
+      relabel_configs:
+        - source_labels: [__address__]
+          target_label: __param_target
+        - source_labels: [__param_target]
+          target_label: instance
+        - target_label: __address__
+          replacement: fortiweb-exporter:9633
+  ```
+  No Dockerfile changes are needed (the handler change is entirely in application
+  code), so just confirm the existing `docker run` example in `README.md` still
+  reads correctly with the new `?target=` usage. *(depends on Task 12)*
+- **Verification**: `grep -qE "^## Configuration" README.md && grep -qE "^##
+  Usage" README.md && grep -q '?target=' README.md` all succeed.
 
 ## FAQ
 
