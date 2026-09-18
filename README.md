@@ -7,6 +7,10 @@ It supports multiple FortiWeb appliances from a single exporter instance —
 each scrape selects which one via a `target` query parameter
 (`/metrics?target=NAME`), the same pattern used by `blackbox_exporter`.
 
+> **Disclaimer:** This is an independent, community project. It is not
+> affiliated with, endorsed by, or supported by Fortinet, Inc. "FortiWeb" and
+> "Fortinet" are trademarks of Fortinet, Inc.
+
 ## Metrics
 
 | Metric | Type | Description |
