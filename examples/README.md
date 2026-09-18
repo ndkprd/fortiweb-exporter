@@ -53,12 +53,13 @@ how each endpoint behaves.
 
 ## Dashboard
 
-The provisioned **FortiWeb Exporter** dashboard covers all 8 `/probe`
+The provisioned **FortiWeb Exporter** dashboard covers all 15 `/probe`
 metrics: target/log-disk/DB-status stats up top, CPU/memory/disk gauges and
-trend graphs, and session/connection-rate traffic graphs — filterable by an
-`instance` template variable. It uses a blue/yellow/orange threshold color
-scheme (rather than the usual green/yellow/red) for utilization and status
-coloring.
+trend graphs, session/connection-rate traffic graphs, and a per-vdom resource
+count row (server-policy, content-routing, server-pool, protection-profile,
+allowed-hosts, virtual-server, signature) — filterable by an `instance`
+template variable. It uses a blue/yellow/orange threshold color scheme
+(rather than the usual green/yellow/red) for utilization and status coloring.
 
 ## Tear down
 
