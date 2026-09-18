@@ -1,0 +1,14 @@
+# Local FortiWeb credentials/config — never commit the real one.
+config.yml
+
+# Build artifacts
+/fortiweb_exporter
+/bin/
+
+# Go
+*.test
+*.out
+
+# OS/editor cruft
+.DS_Store
+*.swp
