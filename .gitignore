@@ -1,5 +1,7 @@
 # Local FortiWeb credentials/config — never commit the real one.
-config.yml
+# Anchored to the repo root only, so examples/config.yml (placeholder data,
+# meant to be committed) isn't swept up by this rule.
+/config.yml
 
 # Build artifacts
 /fortiweb-exporter

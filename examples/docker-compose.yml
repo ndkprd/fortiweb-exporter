@@ -1,0 +1,20 @@
+services:
+  fortiweb-exporter:
+    image: registry.gitlab.com/endekasoft/fortiweb-exporter:latest
+    container_name: fortiweb-exporter
+    restart: unless-stopped
+    ports:
+      - "9633:9633"
+    volumes:
+      - ./config.yml:/etc/fortiweb-exporter/config.yml:ro
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    restart: unless-stopped
+    depends_on:
+      - fortiweb-exporter
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro

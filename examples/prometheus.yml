@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  # Probes each FortiWeb target listed below through fortiweb-exporter's
+  # /probe endpoint. Add or remove targets here to match config.yml's
+  # "fortiweb" map keys.
+  - job_name: fortiweb
+    metrics_path: /probe
+    static_configs:
+      - targets:
+          - fwb-01.example.com
+          - fwb-02.example.com
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: instance
+      - target_label: __address__
+        replacement: fortiweb-exporter:9633
+
+  # The exporter's own internal (Go runtime/process) health metrics.
+  - job_name: fortiweb-exporter
+    static_configs:
+      - targets: ["fortiweb-exporter:9633"]
