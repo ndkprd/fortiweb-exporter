@@ -5,8 +5,15 @@ scrape_configs:
   # Probes each FortiWeb target listed below through fortiweb-exporter's
   # /probe endpoint. Add or remove targets here to match config.yml's
   # "fortiweb" map keys.
+  #
+  # scrape_timeout is raised above Prometheus's 10s default: the exporter's
+  # own FortiWeb API call has a 10s internal timeout, so a 10s scrape_timeout
+  # can race it and report the scrape itself as failed (context deadline
+  # exceeded) even though the exporter would have returned fortiweb_up 0
+  # a moment later.
   - job_name: fortiweb
     metrics_path: /probe
+    scrape_timeout: 15s
     static_configs:
       - targets:
           - fwb-01.example.com

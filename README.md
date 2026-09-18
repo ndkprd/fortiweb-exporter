@@ -114,10 +114,17 @@ Point Prometheus at it using the standard multi-target relabeling pattern
 (the same one `blackbox_exporter` uses), so each configured target name
 becomes its own scraped `instance`:
 
+The exporter's own call to the FortiWeb API has a 10s internal timeout, so
+set `scrape_timeout` above Prometheus's 10s default for the `fortiweb` job —
+otherwise Prometheus's scrape can time out first and report the scrape as
+failed even when the exporter would have returned `fortiweb_up 0` a moment
+later:
+
 ```yaml
 scrape_configs:
   - job_name: fortiweb
     metrics_path: /probe
+    scrape_timeout: 15s
     static_configs:
       - targets:
           - fwb-01.example.com
