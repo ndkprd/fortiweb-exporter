@@ -125,6 +125,12 @@ docker run --rm \
   fortiweb_exporter
 ```
 
+Or use Docker Compose, which builds the image and mounts `config.yml` for you:
+
+```sh
+docker compose up -d
+```
+
 ## Development
 
 ```sh

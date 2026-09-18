@@ -1,0 +1,10 @@
+services:
+  fortiweb_exporter:
+    build: .
+    image: fortiweb_exporter:latest
+    container_name: fortiweb_exporter
+    restart: unless-stopped
+    ports:
+      - "9633:9633"
+    volumes:
+      - ./config.yml:/etc/fortiweb_exporter/config.yml:ro
