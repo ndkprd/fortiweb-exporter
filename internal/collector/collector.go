@@ -7,7 +7,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/rs/zerolog/log"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
 )
 
 const availableStatus = "Available"

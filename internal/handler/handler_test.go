@@ -7,8 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/collector"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
 )
 
 type fakeStatusGetter struct {

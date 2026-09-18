@@ -1,4 +1,4 @@
-# fortiweb_exporter
+# fortiweb-exporter
 
 A Prometheus exporter for [FortiWeb](https://www.fortinet.com/products/web-application-firewall/fortiweb)
 appliances. It scrapes the `api/v2.0/system/status.systemresource` REST
@@ -73,17 +73,20 @@ cp config.yml.example config.yml
 Build and run locally:
 
 ```sh
-go build -o fortiweb_exporter ./cmd/fortiweb_exporter
-./fortiweb_exporter --config config.yml
+go build -o fortiweb-exporter ./cmd/fortiweb-exporter
+./fortiweb-exporter --config config.yml
 ```
 
 Or run directly without a separate build step:
 
 ```sh
-go run ./cmd/fortiweb_exporter --config config.yml
+go run ./cmd/fortiweb-exporter --config config.yml
 ```
 
-Then scrape a specific target:
+The root path (`http://localhost:9633/`) serves a basic landing page listing
+every configured target as a link to its `/metrics?target=NAME` endpoint.
+
+Or scrape a specific target directly:
 
 ```sh
 curl 'http://localhost:9633/metrics?target=fwb-01.example.com'
@@ -105,7 +108,7 @@ scrape_configs:
       - source_labels: [__param_target]
         target_label: instance
       - target_label: __address__
-        replacement: localhost:9633 # the fortiweb_exporter's own address
+        replacement: localhost:9633 # the fortiweb-exporter's own address
 ```
 
 ## Docker
@@ -113,16 +116,16 @@ scrape_configs:
 Build the image:
 
 ```sh
-docker build -t fortiweb_exporter .
+docker build -t fortiweb-exporter .
 ```
 
 Run it, mounting your `config.yml` read-only and publishing the metrics port:
 
 ```sh
 docker run --rm \
-  -v "$(pwd)/config.yml:/etc/fortiweb_exporter/config.yml:ro" \
+  -v "$(pwd)/config.yml:/etc/fortiweb-exporter/config.yml:ro" \
   -p 9633:9633 \
-  fortiweb_exporter
+  fortiweb-exporter
 ```
 
 Or use Docker Compose, which builds the image and mounts `config.yml` for you:

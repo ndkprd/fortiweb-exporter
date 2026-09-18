@@ -1,4 +1,4 @@
-// Command fortiweb_exporter serves Prometheus metrics scraped from a
+// Command fortiweb-exporter serves Prometheus metrics scraped from a
 // FortiWeb appliance's system resource status.
 package main
 
@@ -9,10 +9,10 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/collector"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/config"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/fortiweb"
-	"gitlab.com/endekasoft/fortiweb_exporter/internal/handler"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/collector"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/config"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
+	"gitlab.com/endekasoft/fortiweb-exporter/internal/handler"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 		Str("listen_address", cfg.ListenAddress).
 		Str("metrics_path", cfg.MetricsPath).
 		Int("target_count", len(clients)).
-		Msg("starting fortiweb_exporter")
+		Msg("starting fortiweb-exporter")
 
 	if err := http.ListenAndServe(cfg.ListenAddress, mux); err != nil {
 		log.Fatal().Str("event", "http_server_failed").Err(err).Msg("http server stopped")

@@ -2,7 +2,7 @@
 config.yml
 
 # Build artifacts
-/fortiweb_exporter
+/fortiweb-exporter
 /bin/
 
 # Go

@@ -1,10 +1,13 @@
+---
+
 services:
-  fortiweb_exporter:
+  fortiweb-exporter:
     build: .
-    image: fortiweb_exporter:latest
-    container_name: fortiweb_exporter
+    pull_policy: never
+    image: fortiweb-exporter:latest
+    container_name: fortiweb-exporter
     restart: unless-stopped
     ports:
       - "9633:9633"
     volumes:
-      - ./config.yml:/etc/fortiweb_exporter/config.yml:ro
+      - ./config.yml:/etc/fortiweb-exporter/config.yml:ro

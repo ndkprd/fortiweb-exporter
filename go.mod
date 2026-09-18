@@ -1,4 +1,4 @@
-module gitlab.com/endekasoft/fortiweb_exporter
+module gitlab.com/endekasoft/fortiweb-exporter
 
 go 1.27.1
 
