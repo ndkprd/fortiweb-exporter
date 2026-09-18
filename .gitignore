@@ -17,3 +17,5 @@
 
 # Claude Code local session state
 .claude/
+
+.codegraph
