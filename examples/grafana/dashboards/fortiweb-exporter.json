@@ -658,6 +658,119 @@
         "colorMode": "value",
         "graphMode": "none"
       }
+    },
+    {
+      "id": 23,
+      "type": "row",
+      "title": "FortiGuard License",
+      "collapsed": false,
+      "gridPos": { "x": 0, "y": 42, "w": 24, "h": 1 },
+      "panels": []
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "FortiGuard Registered",
+      "description": "fortiweb_registered — whether the FortiWeb appliance is registered with FortiGuard.",
+      "gridPos": { "x": 0, "y": 43, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fortiweb_registered{instance=~\"$instance\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": { "text": "No", "color": "orange", "index": 0 },
+                "1": { "text": "Yes", "color": "blue", "index": 1 }
+              }
+            }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "value": null, "color": "blue" }] },
+          "color": { "mode": "thresholds" }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": { "values": false, "calcs": ["lastNotNull"] },
+        "orientation": "horizontal",
+        "textMode": "auto",
+        "colorMode": "background",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 25,
+      "type": "table",
+      "title": "License Status by Service",
+      "description": "fortiweb_license_valid and fortiweb_license_expiry_timestamp_seconds, one row per FortiGuard license service.",
+      "gridPos": { "x": 8, "y": 43, "w": 16, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "fortiweb_license_valid{instance=~\"$instance\"}",
+          "legendFormat": "{{service}}",
+          "format": "table",
+          "instant": true
+        },
+        {
+          "refId": "B",
+          "expr": "fortiweb_license_expiry_timestamp_seconds{instance=~\"$instance\"} * 1000",
+          "legendFormat": "{{service}}",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "transformations": [
+        { "id": "merge", "options": {} },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": { "Time": true },
+            "renameByName": {
+              "instance": "Instance",
+              "service": "Service",
+              "Value #A": "Valid",
+              "Value #B": "Expiry"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Valid" },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "0": { "text": "No", "color": "orange", "index": 0 },
+                      "1": { "text": "Yes", "color": "blue", "index": 1 }
+                    }
+                  }
+                ]
+              },
+              { "id": "custom.displayMode", "value": "color-background" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Expiry" },
+            "properties": [{ "id": "unit", "value": "dateTimeAsIso" }]
+          }
+        ]
+      },
+      "options": { "showHeader": true }
     }
   ]
 }

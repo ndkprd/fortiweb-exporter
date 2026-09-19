@@ -47,6 +47,10 @@ func (f *fakeStatusGetter) GetSignatureCount(context.Context) (int, error) {
 	return 0, f.err
 }
 
+func (f *fakeStatusGetter) GetFortiGuardStatus(context.Context) (*fortiweb.FortiGuardStatus, error) {
+	return &fortiweb.FortiGuardStatus{}, f.err
+}
+
 func newTestClients() map[string]Target {
 	return map[string]Target{
 		"fwb-01.example.com": {

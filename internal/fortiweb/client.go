@@ -46,7 +46,51 @@ const (
 	allowedHostsListPath      = "/api/v2.0/cmdb/server-policy/allow-hosts"
 	virtualServerListPath     = "/api/v2.0/cmdb/server-policy/vserver"
 	signatureListPath         = "/api/v2.0/cmdb/waf/signature"
+	fortiGuardStatusPath      = "/api/v2.0/system/config.fortiguard"
 )
+
+const licenseExpiredDateLayout = "2006-01-02"
+
+// LicenseStatus is a single FortiGuard license service's expiry and
+// validity, as reported by GET /api/v2.0/system/config.fortiguard.
+type LicenseStatus struct {
+	Service string
+	Expiry  time.Time
+	Valid   bool
+}
+
+// FortiGuardStatus holds registration and per-service license status from
+// GET /api/v2.0/system/config.fortiguard.
+type FortiGuardStatus struct {
+	IsRegistered bool
+	Licenses     []LicenseStatus
+}
+
+// licenseServiceEntry is the shape shared by every per-service license
+// object in the config.fortiguard response: {"expired": "YYYY-MM-DD",
+// "is_valid": bool, ...extra fields ignored}.
+type licenseServiceEntry struct {
+	Expired string `json:"expired"`
+	IsValid bool   `json:"is_valid"`
+}
+
+type fortiGuardResultsEnvelope struct {
+	Results struct {
+		Registration struct {
+			IsRegistered bool `json:"is_registered"`
+		} `json:"registration"`
+		SecurityService           licenseServiceEntry `json:"securityService"`
+		AntivirusService          licenseServiceEntry `json:"antivirusService"`
+		ReputationService         licenseServiceEntry `json:"reputationService"`
+		CredentialStuffingDefense licenseServiceEntry `json:"credentialStuffingDefense"`
+		SbclService               licenseServiceEntry `json:"sbclService"`
+		DlpSignature              licenseServiceEntry `json:"dlpSignature"`
+		GeodbService              licenseServiceEntry `json:"geodbService"`
+		FuzzyWebshellService      licenseServiceEntry `json:"fuzzyWebshellService"`
+		ThreatAnalytics           licenseServiceEntry `json:"ThreatAnalytics"`
+		AdvancedBotProtection     licenseServiceEntry `json:"AdvancedBotProtection"`
+	} `json:"results"`
+}
 
 // authHeaderPayload is the JSON object FortiWeb expects to be base64-encoded
 // into the Authorization header value.
@@ -164,6 +208,55 @@ func (c *Client) GetVirtualServerCount(ctx context.Context) (int, error) {
 // the client's vdom.
 func (c *Client) GetSignatureCount(ctx context.Context) (int, error) {
 	return c.getResourceCount(ctx, signatureListPath)
+}
+
+// GetFortiGuardStatus fetches FortiGuard registration and per-service
+// license expiry/validity from the FortiWeb appliance.
+func (c *Client) GetFortiGuardStatus(ctx context.Context) (*FortiGuardStatus, error) {
+	resp, err := c.doGetRequest(ctx, fortiGuardStatusPath)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("fortiweb: unexpected status %d: %s", resp.StatusCode, readSnippet(resp.Body))
+	}
+
+	var envelope fortiGuardResultsEnvelope
+	if err := json.NewDecoder(resp.Body).Decode(&envelope); err != nil {
+		return nil, fmt.Errorf("fortiweb: decode fortiguard status: %w", err)
+	}
+
+	entries := []struct {
+		service string
+		entry   licenseServiceEntry
+	}{
+		{"security", envelope.Results.SecurityService},
+		{"antivirus", envelope.Results.AntivirusService},
+		{"reputation", envelope.Results.ReputationService},
+		{"credential_stuffing_defense", envelope.Results.CredentialStuffingDefense},
+		{"sbcl", envelope.Results.SbclService},
+		{"dlp_signature", envelope.Results.DlpSignature},
+		{"geodb", envelope.Results.GeodbService},
+		{"fuzzy_webshell", envelope.Results.FuzzyWebshellService},
+		{"threat_analytics", envelope.Results.ThreatAnalytics},
+		{"advanced_bot_protection", envelope.Results.AdvancedBotProtection},
+	}
+
+	licenses := make([]LicenseStatus, len(entries))
+	for i, e := range entries {
+		expiry, err := time.Parse(licenseExpiredDateLayout, e.entry.Expired)
+		if err != nil {
+			return nil, fmt.Errorf("fortiweb: parse %s license expiry %q: %w", e.service, e.entry.Expired, err)
+		}
+		licenses[i] = LicenseStatus{Service: e.service, Expiry: expiry, Valid: e.entry.IsValid}
+	}
+
+	return &FortiGuardStatus{
+		IsRegistered: envelope.Results.Registration.IsRegistered,
+		Licenses:     licenses,
+	}, nil
 }
 
 func (c *Client) getResourceCount(ctx context.Context, path string) (int, error) {
