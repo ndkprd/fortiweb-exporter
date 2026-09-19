@@ -23,6 +23,7 @@ type StatusGetter interface {
 	GetAllowedHostsCount(ctx context.Context) (int, error)
 	GetVirtualServerCount(ctx context.Context) (int, error)
 	GetSignatureCount(ctx context.Context) (int, error)
+	GetFortiGuardStatus(ctx context.Context) (*fortiweb.FortiGuardStatus, error)
 }
 
 // countMetric pairs a vdom-labeled resource-count gauge with the call that
@@ -47,6 +48,10 @@ type Collector struct {
 	connectionsPerSecond *prometheus.Desc
 	logDiskAvailable     *prometheus.Desc
 	dbStatusAvailable    *prometheus.Desc
+	registered           *prometheus.Desc
+
+	licenseExpiryTimestamp *prometheus.Desc
+	licenseValid           *prometheus.Desc
 
 	counts []countMetric
 }
@@ -97,6 +102,21 @@ func NewCollector(client StatusGetter, vdom string) *Collector {
 			"Whether the FortiWeb database status is available (1) or not (0).",
 			nil, nil,
 		),
+		registered: prometheus.NewDesc(
+			"fortiweb_registered",
+			"Whether the FortiWeb appliance is registered with FortiGuard (1) or not (0).",
+			nil, nil,
+		),
+		licenseExpiryTimestamp: prometheus.NewDesc(
+			"fortiweb_license_expiry_timestamp_seconds",
+			"Unix timestamp when the FortiGuard license for a service expires.",
+			[]string{"service"}, nil,
+		),
+		licenseValid: prometheus.NewDesc(
+			"fortiweb_license_valid",
+			"Whether the FortiGuard license for a service is currently valid (1) or not (0).",
+			[]string{"service"}, nil,
+		),
 	}
 
 	type spec struct {
@@ -135,6 +155,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- c.connectionsPerSecond
 	ch <- c.logDiskAvailable
 	ch <- c.dbStatusAvailable
+	ch <- c.registered
+	ch <- c.licenseExpiryTimestamp
+	ch <- c.licenseValid
 	for _, m := range c.counts {
 		ch <- m.desc
 	}
@@ -164,10 +187,18 @@ func (c *Collector) Collect(ch chan<- prometheus.Metric) {
 		values[i] = float64(n)
 	}
 
+	fgStatus, err := c.client.GetFortiGuardStatus(ctx)
+	if err != nil {
+		log.Error().Str("event", "fortiweb_scrape_failed").Err(err).Msg("failed to scrape FortiWeb FortiGuard status")
+		ch <- prometheus.MustNewConstMetric(c.up, prometheus.GaugeValue, 0)
+		return
+	}
+
 	c.collectStatus(ch, status)
 	for i, m := range c.counts {
 		ch <- prometheus.MustNewConstMetric(m.desc, prometheus.GaugeValue, values[i], c.vdom)
 	}
+	c.collectFortiGuardStatus(ch, fgStatus)
 }
 
 func (c *Collector) collectStatus(ch chan<- prometheus.Metric, status *fortiweb.SystemResourceStatus) {
@@ -179,6 +210,21 @@ func (c *Collector) collectStatus(ch chan<- prometheus.Metric, status *fortiweb.
 	ch <- prometheus.MustNewConstMetric(c.connectionsPerSecond, prometheus.GaugeValue, float64(status.ConnCntPerSec))
 	ch <- prometheus.MustNewConstMetric(c.logDiskAvailable, prometheus.GaugeValue, availableToFloat(status.LogDisk))
 	ch <- prometheus.MustNewConstMetric(c.dbStatusAvailable, prometheus.GaugeValue, availableToFloat(status.DBStatus))
+}
+
+func (c *Collector) collectFortiGuardStatus(ch chan<- prometheus.Metric, status *fortiweb.FortiGuardStatus) {
+	ch <- prometheus.MustNewConstMetric(c.registered, prometheus.GaugeValue, boolToFloat(status.IsRegistered))
+	for _, lic := range status.Licenses {
+		ch <- prometheus.MustNewConstMetric(c.licenseExpiryTimestamp, prometheus.GaugeValue, float64(lic.Expiry.Unix()), lic.Service)
+		ch <- prometheus.MustNewConstMetric(c.licenseValid, prometheus.GaugeValue, boolToFloat(lic.Valid), lic.Service)
+	}
+}
+
+func boolToFloat(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 func availableToFloat(s string) float64 {

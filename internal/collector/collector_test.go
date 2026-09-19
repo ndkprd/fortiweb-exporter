@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"gitlab.com/endekasoft/fortiweb-exporter/internal/fortiweb"
@@ -22,6 +23,9 @@ type fakeStatusGetter struct {
 	virtualServerCount     int
 	signatureCount         int
 	countErr               error
+
+	fortiGuardStatus *fortiweb.FortiGuardStatus
+	fortiGuardErr    error
 }
 
 func (f *fakeStatusGetter) GetSystemResourceStatus(context.Context) (*fortiweb.SystemResourceStatus, error) {
@@ -56,6 +60,10 @@ func (f *fakeStatusGetter) GetSignatureCount(context.Context) (int, error) {
 	return f.signatureCount, f.countErr
 }
 
+func (f *fakeStatusGetter) GetFortiGuardStatus(context.Context) (*fortiweb.FortiGuardStatus, error) {
+	return f.fortiGuardStatus, f.fortiGuardErr
+}
+
 func TestCollect_Success(t *testing.T) {
 	fake := &fakeStatusGetter{
 		status: &fortiweb.SystemResourceStatus{
@@ -74,6 +82,7 @@ func TestCollect_Success(t *testing.T) {
 		allowedHostsCount:      9,
 		virtualServerCount:     10,
 		signatureCount:         11,
+		fortiGuardStatus:       fakeFortiGuardStatus(),
 	}
 	collector := NewCollector(fake, "root")
 
@@ -123,6 +132,71 @@ fortiweb_virtual_server_count{vdom="root"} 10
 # HELP fortiweb_signature_count Current number of signature objects configured on the vdom.
 # TYPE fortiweb_signature_count gauge
 fortiweb_signature_count{vdom="root"} 11
+# HELP fortiweb_registered Whether the FortiWeb appliance is registered with FortiGuard (1) or not (0).
+# TYPE fortiweb_registered gauge
+fortiweb_registered 1
+# HELP fortiweb_license_expiry_timestamp_seconds Unix timestamp when the FortiGuard license for a service expires.
+# TYPE fortiweb_license_expiry_timestamp_seconds gauge
+fortiweb_license_expiry_timestamp_seconds{service="security"} 1.8264096e+09
+fortiweb_license_expiry_timestamp_seconds{service="antivirus"} 1.8264096e+09
+fortiweb_license_expiry_timestamp_seconds{service="reputation"} 1.8264096e+09
+fortiweb_license_expiry_timestamp_seconds{service="credential_stuffing_defense"} 0
+fortiweb_license_expiry_timestamp_seconds{service="sbcl"} 0
+fortiweb_license_expiry_timestamp_seconds{service="dlp_signature"} 0
+fortiweb_license_expiry_timestamp_seconds{service="geodb"} 1.8264096e+09
+fortiweb_license_expiry_timestamp_seconds{service="fuzzy_webshell"} 1.8264096e+09
+fortiweb_license_expiry_timestamp_seconds{service="threat_analytics"} 0
+fortiweb_license_expiry_timestamp_seconds{service="advanced_bot_protection"} 0
+# HELP fortiweb_license_valid Whether the FortiGuard license for a service is currently valid (1) or not (0).
+# TYPE fortiweb_license_valid gauge
+fortiweb_license_valid{service="security"} 1
+fortiweb_license_valid{service="antivirus"} 1
+fortiweb_license_valid{service="reputation"} 1
+fortiweb_license_valid{service="credential_stuffing_defense"} 0
+fortiweb_license_valid{service="sbcl"} 0
+fortiweb_license_valid{service="dlp_signature"} 0
+fortiweb_license_valid{service="geodb"} 1
+fortiweb_license_valid{service="fuzzy_webshell"} 1
+fortiweb_license_valid{service="threat_analytics"} 0
+fortiweb_license_valid{service="advanced_bot_protection"} 0
+`
+
+	if err := testutil.CollectAndCompare(collector, strings.NewReader(expected)); err != nil {
+		t.Fatalf("unexpected collecting result:\n%s", err)
+	}
+}
+
+func fakeFortiGuardStatus() *fortiweb.FortiGuardStatus {
+	licensed := time.Date(2027, time.November, 17, 0, 0, 0, 0, time.UTC)
+	unlicensed := time.Unix(0, 0).UTC()
+	return &fortiweb.FortiGuardStatus{
+		IsRegistered: true,
+		Licenses: []fortiweb.LicenseStatus{
+			{Service: "security", Expiry: licensed, Valid: true},
+			{Service: "antivirus", Expiry: licensed, Valid: true},
+			{Service: "reputation", Expiry: licensed, Valid: true},
+			{Service: "credential_stuffing_defense", Expiry: unlicensed, Valid: false},
+			{Service: "sbcl", Expiry: unlicensed, Valid: false},
+			{Service: "dlp_signature", Expiry: unlicensed, Valid: false},
+			{Service: "geodb", Expiry: licensed, Valid: true},
+			{Service: "fuzzy_webshell", Expiry: licensed, Valid: true},
+			{Service: "threat_analytics", Expiry: unlicensed, Valid: false},
+			{Service: "advanced_bot_protection", Expiry: unlicensed, Valid: false},
+		},
+	}
+}
+
+func TestCollect_FortiGuardFailure(t *testing.T) {
+	fake := &fakeStatusGetter{
+		status:        &fortiweb.SystemResourceStatus{CPU: 17},
+		fortiGuardErr: errors.New("connection refused"),
+	}
+	collector := NewCollector(fake, "root")
+
+	expected := `
+# HELP fortiweb_up Whether the last scrape of the FortiWeb API succeeded (1 for success, 0 for failure).
+# TYPE fortiweb_up gauge
+fortiweb_up 0
 `
 
 	if err := testutil.CollectAndCompare(collector, strings.NewReader(expected)); err != nil {

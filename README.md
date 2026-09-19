@@ -41,6 +41,9 @@ These are returned by `/probe?target=NAME`:
 | `fortiweb_allowed_hosts_count` | gauge | Current number of allowed-hosts objects configured on the target's vdom. Labeled `vdom`. |
 | `fortiweb_virtual_server_count` | gauge | Current number of virtual-server objects configured on the target's vdom. Labeled `vdom`. |
 | `fortiweb_signature_count` | gauge | Current number of signature objects configured on the target's vdom. Labeled `vdom`. |
+| `fortiweb_registered` | gauge | Whether the FortiWeb appliance is registered with FortiGuard (`1`) or not (`0`). |
+| `fortiweb_license_expiry_timestamp_seconds` | gauge | Unix timestamp when the FortiGuard license for a service expires. Labeled `service`. |
+| `fortiweb_license_valid` | gauge | Whether the FortiGuard license for a service is currently valid (`1`) or not (`0`). Labeled `service`. |
 
 When the `target` is valid but the FortiWeb API call itself fails (network
 error, auth failure, non-2xx response), `/probe` still returns `200 OK` with

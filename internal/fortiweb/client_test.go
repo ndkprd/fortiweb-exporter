@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 const validStatusResponse = `{
@@ -162,6 +163,112 @@ func TestResourceCountMethods_NonOKStatus(t *testing.T) {
 	client := NewClient(server.URL, "admin", "wrong-password", "root", false)
 	if _, err := client.GetServerPolicyCount(context.Background()); err == nil {
 		t.Fatal("GetServerPolicyCount() returned nil error, want non-nil for a 401 response")
+	}
+}
+
+const validFortiGuardResponse = `{
+  "results": {
+    "registration": { "label": "it.dctn@indonesiaferry.co.id", "label_key": "it.dctn@indonesiaferry.co.id", "url": "https://support.fortinet.com", "text": "[Login]", "is_registered": true },
+    "securityService": { "expired": "2027-11-17", "is_valid": true, "label_key": "lic_fwdb" },
+    "antivirusService": { "expired": "2027-11-17", "is_valid": true, "label_key": "lic_avdb" },
+    "reputationService": { "expired": "2027-11-17", "is_valid": true, "label_key": "lic_irdb" },
+    "credentialStuffingDefense": { "expired": "1970-01-01", "is_valid": false, "label_key": "lic_hcdb" },
+    "sbclService": { "expired": "1970-01-01", "is_valid": false, "label_key": "lic_sandbox" },
+    "dlpSignature": { "expired": "1970-01-01", "is_valid": false, "label_key": "lic_dldb" },
+    "geodbService": { "expired": "2027-11-17", "is_valid": true, "label_key": "lic_geodb" },
+    "fuzzyWebshellService": { "expired": "2027-11-17", "is_valid": true, "label_key": "lic_fuzzywebshell" },
+    "ThreatAnalytics": { "expired": "1970-01-01", "is_valid": false },
+    "AdvancedBotProtection": { "expired": "1970-01-01", "is_valid": false },
+    "updateStatus": "task_idle",
+    "_id": "only"
+  }
+}`
+
+func TestGetFortiGuardStatus_ParsesResponse(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/v2.0/system/config.fortiguard" {
+			t.Errorf("request path = %q, want %q", r.URL.Path, "/api/v2.0/system/config.fortiguard")
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(validFortiGuardResponse))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "changeme", "root", false)
+	status, err := client.GetFortiGuardStatus(context.Background())
+	if err != nil {
+		t.Fatalf("GetFortiGuardStatus() returned unexpected error: %v", err)
+	}
+
+	if !status.IsRegistered {
+		t.Errorf("IsRegistered = false, want true")
+	}
+
+	wantExpired := time.Date(2027, time.November, 17, 0, 0, 0, 0, time.UTC)
+	wantUnlicensed := time.Unix(0, 0).UTC()
+	want := []LicenseStatus{
+		{"security", wantExpired, true},
+		{"antivirus", wantExpired, true},
+		{"reputation", wantExpired, true},
+		{"credential_stuffing_defense", wantUnlicensed, false},
+		{"sbcl", wantUnlicensed, false},
+		{"dlp_signature", wantUnlicensed, false},
+		{"geodb", wantExpired, true},
+		{"fuzzy_webshell", wantExpired, true},
+		{"threat_analytics", wantUnlicensed, false},
+		{"advanced_bot_protection", wantUnlicensed, false},
+	}
+
+	if len(status.Licenses) != len(want) {
+		t.Fatalf("len(Licenses) = %d, want %d", len(status.Licenses), len(want))
+	}
+	for i, w := range want {
+		got := status.Licenses[i]
+		if got != w {
+			t.Errorf("Licenses[%d] = %+v, want %+v", i, got, w)
+		}
+	}
+}
+
+func TestGetFortiGuardStatus_NonOKStatus(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		w.Write([]byte("invalid credentials"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "wrong-password", "root", false)
+	if _, err := client.GetFortiGuardStatus(context.Background()); err == nil {
+		t.Fatal("GetFortiGuardStatus() returned nil error, want non-nil for a 401 response")
+	}
+}
+
+func TestGetFortiGuardStatus_MalformedJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("{not valid json"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "changeme", "root", false)
+	if _, err := client.GetFortiGuardStatus(context.Background()); err == nil {
+		t.Fatal("GetFortiGuardStatus() returned nil error, want non-nil for a malformed JSON body")
+	}
+}
+
+func TestGetFortiGuardStatus_UnparseableExpiry(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(`{"results":{"securityService":{"expired":"not-a-date","is_valid":true}}}`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "admin", "changeme", "root", false)
+	if _, err := client.GetFortiGuardStatus(context.Background()); err == nil {
+		t.Fatal("GetFortiGuardStatus() returned nil error, want non-nil for an unparseable expiry date")
 	}
 }
 
